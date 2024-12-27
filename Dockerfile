@@ -1,34 +1,23 @@
 FROM alpine:edge
-ENV USER=docker
-ENV GROUPNAME=$USER
-ENV UID=1001
-ENV GID=1001
-RUN addgroup \
-    --gid "$GID" \
-    "$GROUPNAME" \
-&&  adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/data" \
-    --ingroup "$GROUPNAME" \
-    --no-create-home \
-    --uid "$UID" \
-    $USER
-# RUN mkdir -p /data
+EXPOSE 1337 22
+ENV PIP_ROOT_USER_ACTION=ignore
+USER root
+RUN echo "root:root123" | chpasswd
+WORKDIR /tmp
+RUN apk add --no-cache screen supervisor nano wget curl sudo openssh bash git github-cli go python3 py3-pip
+RUN echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
+RUN echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
+# RUN wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
+#     && tar -xvzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
+COPY start.sh /usr/local/bin/anu
+RUN chmod +x /usr/local/bin/anu
+COPY serveo.sh /usr/local/bin/serveo
+RUN chmod +x /usr/local/bin/serveo
+# COPY ngrok.sh /usr/local/bin/ngrokservice
+# RUN chmod +x /usr/local/bin/ngrokservice
+COPY supervisord.conf /etc/supervisord.conf
+RUN rm -rf /tmp/*
+RUN python3 -m pip config set global.break-system-packages true \
+    && pip install -U g4f[api] && pip install -U curl_cffi
 WORKDIR /data
-RUN apk add --no-cache openssh tmux bash git github-cli go python3 py3-pip
-RUN cd /tmp && git clone https://github.com/owenthereal/upterm.git \
-  && cd upterm \
-  && go install ./cmd/upterm/... \
-  && cd cmd/upterm \
-  && go build . \
-  && cp upterm /usr/local/bin/ \
-  && chmod +x /usr/local/bin/upterm
-RUN rm -rf /tmp
-COPY start.sh /usr/local/bin/startx
-RUN chmod +x /usr/local/bin/startx
-USER $USER
-RUN ssh-keygen -t ed25519 -C "root@localhost" -N '' -f ~/.ssh/id_ed25519
-EXPOSE 3000 1337
-CMD ["startx"]
-# ENTRYPOINT ["pip","install","-U","g4f[api]","&&","python3","-m","g4f.cli","api"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
