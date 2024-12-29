@@ -1,6 +1,7 @@
 FROM alpine:edge
 EXPOSE 1337 22
 ENV PIP_ROOT_USER_ACTION=ignore
+ENV GOCACHE=/data/.cache/go-build
 USER root
 WORKDIR /tmp
 RUN apk add --no-cache shadow bash zsh zsh-autosuggestions zsh-syntax-highlighting screen supervisor nano wget curl sudo openssh bash github-cli go python3 py3-pip
