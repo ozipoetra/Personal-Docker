@@ -25,7 +25,7 @@ RUN chmod +x /usr/local/bin/serveo
 COPY supervisord.conf /etc/supervisord.conf
 RUN rm -rf /tmp/*
 RUN python3 -m pip config set global.break-system-packages true
-RUN pip install --break-system-packages -U g4f[api] curl_cffi
+RUN pip install --break-system-packages -U g4f[api] curl_cffi g4f[search]
 WORKDIR /data
 # ENTRYPOINT ["/bin/zsh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
