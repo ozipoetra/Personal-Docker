@@ -24,8 +24,8 @@ RUN chmod +x /usr/local/bin/serveo
 # RUN chmod +x /usr/local/bin/ngrokservice
 COPY supervisord.conf /etc/supervisord.conf
 RUN rm -rf /tmp/*
-RUN python3 -m pip config set global.break-system-packages true \
-    && pip install -U g4f[api] nodriver curl_cffi
+RUN python3 -m pip config set global.break-system-packages true
+RUN pip install --break-system-packages -U g4f[api] curl_cffi
 WORKDIR /data
 # ENTRYPOINT ["/bin/zsh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
