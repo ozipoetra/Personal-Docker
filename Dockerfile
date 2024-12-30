@@ -1,15 +1,21 @@
 FROM alpine:edge
 EXPOSE 1337 22
 ENV PIP_ROOT_USER_ACTION=ignore
-ENV GOCACHE=/data/.cache/go-build
+ENV TIMES=$(date)
 USER root
 WORKDIR /tmp
-RUN apk add --no-cache shadow bash zsh zsh-autosuggestions zsh-syntax-highlighting screen supervisor nano wget curl sudo openssh bash github-cli go python3 py3-pip
+RUN apk add --no-cache clang shadow bash zsh zsh-autosuggestions zsh-syntax-highlighting screen supervisor nano wget curl sudo openssh bash github-cli go python3 py3-pip
 RUN apk add --no-cache neofetch --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing/
 RUN echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
 RUN echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
 RUN echo 'neofetch' >> /etc/profile
-RUN echo 'Welcome To Alpine Linux' > /etc/motd
+RUN echo 'export GOCACHE="/data/.cache/go-build"' >> /etc/profile
+RUN echo 'export GOMODCACHE="/data/go/pkg/mod"' >> /etc/profile
+RUN echo 'export GOPATH="/data/go"' >> /etc/profile
+RUN echo 'export CC="clang"' >> /etc/profile
+RUN echo 'export CXX="clang++"' >> /etc/profile
+RUN echo '### Alpine Linux ###' > /etc/motd
+RUN echo "### Build Date: $TIMES ###" >> /etc/motd
 RUN sh -c "$(wget https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh -O -)"
 RUN echo "source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" >> ~/.zshrc && \
     echo "source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh" >> ~/.zshrc
