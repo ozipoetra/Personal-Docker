@@ -17,11 +17,15 @@ RUN echo "Build Date: $(date)" > /etc/motd
 RUN chsh --shell /bin/ash root
 # RUN wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
 #     && tar -xvzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
-RUN wget https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-linux-amd64 -O /usr/local/bin/playit && chmod +x /usr/local/bin/playit
+RUN wget https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-linux-amd64 -O /usr/local/bin/playit \
+    && chmod +x /usr/local/bin/playit
 COPY playits.sh /usr/local/bin/playits
 RUN chmod +x /usr/local/bin/playits
 COPY start.sh /usr/local/bin/anu
 RUN chmod +x /usr/local/bin/anu
+# Download the latest version of cloudflared
+RUN wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/bin/cloudflared \
+    && chmod +x /usr/bin/cloudflared
 # COPY serveo.sh /usr/local/bin/serveo
 # RUN chmod +x /usr/local/bin/serveo
 # COPY ngrok.sh /usr/local/bin/ngrokservice
