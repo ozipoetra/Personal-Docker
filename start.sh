@@ -12,7 +12,7 @@ else
 fi
 
 if [ ! -d "$DIRECTORY/mc" ]; then
-  mkdir -P $DIRECTORY/mc
+  mkdir -p $DIRECTORY/mc
   cd $DIRECTORY/mc
   wget --user-agent "linuxwget" https://www.minecraft.net/bedrockdedicatedserver/bin-linux/$MC_NAME
   unzip $MC_NAME
