@@ -7,6 +7,8 @@ if pgrep -x "openvpn" > /dev/null
 then
     echo "openvpn is Running"
 else
+    git config --global user.name "botminecraft"
+    git config --global user.email "dev@animez.my.id"
     nohup openvpn --config $DIRECTORY/bed.ovpn &
     echo "Starting openvpn..."
 fi
@@ -35,3 +37,10 @@ else
     echo "Starting bedrock..."
 fi
 
+while true
+do
+  sleep 3600
+  git add .
+  git commit -m "[backup] backup server"
+  git push
+done
