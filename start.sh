@@ -17,7 +17,10 @@ if [ ! -d "$DIRECTORY/mc" ]; then
   wget --user-agent "linuxwget" https://www.minecraft.net/bedrockdedicatedserver/bin-linux/$MC_NAME
   unzip $MC_NAME
   ln -s ../worlds worlds
+  rm permissions.json
   ln -s ../permissions.json permissions.json
+  rm server.properties
+  ln -s ../server.properties server.properties
 fi
 
 if pgrep -x "bedrock_server" > /dev/null
