@@ -1,6 +1,4 @@
 FROM ubuntu:latest
-EXPOSE 1337
-ENV PIP_ROOT_USER_ACTION=ignore
 USER root
 WORKDIR /tmp
 RUN apt update && apt install -y unminimize
