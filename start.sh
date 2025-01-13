@@ -12,6 +12,7 @@ else
 fi
 
 if [ ! -d "$DIRECTORY/mc" ]; then
+  echo "mc server not found, downloading..."
   mkdir -p $DIRECTORY/mc
   cd $DIRECTORY/mc
   wget --user-agent "linuxwget" https://www.minecraft.net/bedrockdedicatedserver/bin-linux/$MC_NAME
@@ -21,6 +22,8 @@ if [ ! -d "$DIRECTORY/mc" ]; then
   ln -s ../permissions.json permissions.json
   rm server.properties
   ln -s ../server.properties server.properties
+  nohup ./bedrock_server &
+  echo "setup done, starting..."
 fi
 
 if pgrep -x "bedrock_server" > /dev/null
