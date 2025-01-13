@@ -1,7 +1,6 @@
 FROM ubuntu:latest
-RUN apt update && apt install -y unminimize
-RUN echo "y" | unminimize
-RUN apt install -y openssh-server curl wget nano git git-lfs gh build-essential openvpn
+RUN apt update
+RUN apt install -y openssh-server curl wget nano git git-lfs gh unzip openvpn
 COPY sshd_config /etc/ssh/sshd_config
 RUN echo "Build Date: $(date)" > /etc/motd
 # RUN wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
