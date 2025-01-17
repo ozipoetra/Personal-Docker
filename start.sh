@@ -39,7 +39,7 @@ fi
 
 while true
 do
-  sleep 21600
+  sleep 1800
   git add .
   git commit -m "[backup] backup server"
   git push
