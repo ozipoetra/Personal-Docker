@@ -40,6 +40,7 @@ fi
 while true
 do
   sleep 1800
+  gh auth setup-git
   git add .
   git commit -m "[backup] backup server"
   git push
