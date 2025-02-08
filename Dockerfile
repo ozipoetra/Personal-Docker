@@ -14,6 +14,7 @@ RUN echo 'export GOCACHE="/data/.cache/go-build"' >> /etc/profile
 RUN echo 'export GOMODCACHE="/data/go/pkg/mod"' >> /etc/profile
 RUN echo 'export GOPATH="/data/go"' >> /etc/profile
 RUN echo "Build Date: $(date)" > /etc/motd
+RUN echo "Changelog: Update AI" >> /etc/motd
 RUN chsh --shell /bin/ash root
 # RUN wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
 #     && tar -xvzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
