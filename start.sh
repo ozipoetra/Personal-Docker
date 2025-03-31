@@ -1,7 +1,7 @@
 #!/bin/sh
 
 DIRECTORY="/workspaces/41739417"
-MC_NAME="bedrock-server-1.21.51.02.zip"
+MC_NAME="bedrock-server-1.21.71.01.zip"
 
 if pgrep -x "openvpn" > /dev/null
 then
