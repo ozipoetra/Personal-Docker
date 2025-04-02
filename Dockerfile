@@ -7,3 +7,4 @@ RUN echo "Build Date: $(date)" > /etc/motd
 #     && tar -xvzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
 COPY start.sh /usr/local/bin/mcs
 RUN chmod +x /usr/local/bin/mcs
+CMD ["mcs"]
