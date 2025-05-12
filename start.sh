@@ -58,21 +58,6 @@ else
     echo "Starting cloudflared..."
 fi
 
-if [ ! -d "/usr/local/x-ui" ]; then
-  echo "x-ui not found, installing..."
-  DEBIAN_FRONTEND=noninteractive bash <(curl -Ls https://raw.githubusercontent.com/MHSanaei/3x-ui/refs/tags/v2.5.8/install.sh)
-  echo "setup done"
-fi
-
-if pgrep -x "x-ui" > /dev/null
-then
-    echo "x-ui is Running"
-else
-    cd /usr/local/x-ui
-    nohup ./x-ui &
-    echo "Starting x-ui..."
-fi
-
 while true
 do
   sleep 300
