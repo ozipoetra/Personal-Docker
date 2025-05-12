@@ -1,6 +1,5 @@
 #!/bin/sh
-
-export DEBIAN_FRONTEND=noninteractive 
+ 
 DIRECTORY="/workspaces/41739417"
 MC_NAME="bedrock-server-1.21.71.01.zip"
 
@@ -59,19 +58,19 @@ else
     echo "Starting cloudflared..."
 fi
 
-if [ ! -d "/usr/local/x-ui" ]; then
-  echo "x-ui not found, installing..."
-  bash <(curl -Ls https://raw.githubusercontent.com/MHSanaei/3x-ui/refs/tags/v2.5.8/install.sh)
+if [ ! -d "/usr/local/z-ui" ]; then
+  echo "z-ui not found, installing..."
+  DEBIAN_FRONTEND=noninteractive bash <(curl -Ls https://raw.githubusercontent.com/ozipoetra/z-ui/main/install.sh)
   echo "setup done"
 fi
 
-if pgrep -x "x-ui" > /dev/null
+if pgrep -x "z-ui" > /dev/null
 then
-    echo "x-ui is Running"
+    echo "z-ui is Running"
 else
-    cd /usr/local/x-ui
-    nohup ./x-ui &
-    echo "Starting x-ui..."
+    cd /usr/local/z-ui
+    nohup ./z-ui &
+    echo "Starting z-ui..."
 fi
 
 while true
