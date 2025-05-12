@@ -58,19 +58,10 @@ else
     echo "Starting cloudflared..."
 fi
 
-if [ ! -d "/usr/local/z-ui" ]; then
-  echo "z-ui not found, installing..."
-  DEBIAN_FRONTEND=noninteractive bash <(curl -Ls https://raw.githubusercontent.com/ozipoetra/z-ui/main/install.sh)
-  echo "setup done"
-fi
-
-if pgrep -x "z-ui" > /dev/null
-then
-    echo "z-ui is Running"
-else
-    cd /usr/local/z-ui
-    nohup ./z-ui &
-    echo "Starting z-ui..."
+if [ ! -d "/usr/local/x-ui" ]; then
+  cd /usr/local/x-ui
+  nohup ./x-ui &
+  echo "starting x done"
 fi
 
 while true
