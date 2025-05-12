@@ -75,6 +75,6 @@ fi
 
 while true
 do
-  sleep 60
-  echo "dont sleep"
+  sleep 300
+  git status
 done
