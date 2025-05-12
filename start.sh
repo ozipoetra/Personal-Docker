@@ -58,7 +58,7 @@ else
     echo "Starting cloudflared..."
 fi
 
-if [ ! -d "/usr/local/x-ui" ]; then
+if [ -d "/usr/local/x-ui" ]; then
   cd /usr/local/x-ui
   nohup ./x-ui &
   echo "starting x done"
