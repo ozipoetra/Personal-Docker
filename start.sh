@@ -54,7 +54,7 @@ if pgrep -x "cloudflared" > /dev/null
 then
     echo "cloudflared is Running"
 else
-    cloudflared tunnel run --token "$cloudflare_token"
+    nohup cloudflared tunnel run --token "$cloudflare_token" &
     echo "Starting cloudflared..."
 fi
 
@@ -70,7 +70,7 @@ then
 else
     cd /usr/local/x-ui
     nohup ./x-ui &
-    echo "Starting bedrock..."
+    echo "Starting x-ui..."
 fi
 
 while true
