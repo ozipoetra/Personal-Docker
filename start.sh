@@ -1,5 +1,6 @@
 #!/bin/sh
 
+export DEBIAN_FRONTEND=noninteractive 
 DIRECTORY="/workspaces/41739417"
 MC_NAME="bedrock-server-1.21.71.01.zip"
 
@@ -56,6 +57,21 @@ then
 else
     nohup cloudflared tunnel run --token "$cloudflare_token" &
     echo "Starting cloudflared..."
+fi
+
+if [ ! -d "/usr/local/x-ui" ]; then
+  echo "x-ui not found, installing..."
+  bash <(curl -Ls https://raw.githubusercontent.com/MHSanaei/3x-ui/refs/tags/v2.5.8/install.sh)
+  echo "setup done"
+fi
+
+if pgrep -x "x-ui" > /dev/null
+then
+    echo "x-ui is Running"
+else
+    cd /usr/local/x-ui
+    nohup ./x-ui &
+    echo "Starting x-ui..."
 fi
 
 while true
