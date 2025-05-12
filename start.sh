@@ -50,6 +50,14 @@ else
   apt-get update && apt-get install cloudflared
 fi
 
+if pgrep -x "cloudflared" > /dev/null
+then
+    echo "cloudflared is Running"
+else
+    cloudflared tunnel run --token "$cloudflare_token"
+    echo "Starting cloudflared..."
+fi
+
 while true
 do
   sleep 1800
