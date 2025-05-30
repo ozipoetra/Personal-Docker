@@ -1,4 +1,4 @@
-name: Ubuntu Docker
+name: Mc Docker
 
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
@@ -8,11 +8,11 @@ name: Ubuntu Docker
 on:
   workflow_dispatch:
   push:
-    branches: [ "ubuntu" ]
+    branches: [ "mc" ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ "ubuntu" ]
+    branches: [ "mc" ]
 
 env:
   # Use docker.io for Docker Hub if empty
