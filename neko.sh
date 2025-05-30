@@ -11,8 +11,8 @@ if [ -d "/root/.config/" ]; then
 fi
 while true
 do
-  gh cs ssh --codespace didactic-barnacle-pgx77wwrgrjh6pw7 > vpn.log &
-  gh cs ssh --codespace sturdy-bassoon-54wvvrrqxg7fp6x6 > mc.log &
+  nohup gh cs ssh --codespace didactic-barnacle-pgx77wwrgrjh6pw7 > vpn.log &
+  nohup gh cs ssh --codespace sturdy-bassoon-54wvvrrqxg7fp6x6 > mc.log &
   sleep 60
   pkill gh
 done
