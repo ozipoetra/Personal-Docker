@@ -1,16 +1,11 @@
 #!/bin/sh
- 
-if command -v "cloudflared" >/dev/null 2>&1; then
-  echo "cloudflared is installed."
+
+if pgrep -x "nginx" > /dev/null
+then
+    echo "nginx is Running"
 else
-  echo "cloudflare is NOT installed. Begin installing..."
-  # Add cloudflare gpg key
-  mkdir -p --mode=0755 /usr/share/keyrings
-  curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-  # Add this repo to your apt repositories
-  echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' | tee /etc/apt/sources.list.d/cloudflared.list
-  # install cloudflared
-  apt-get update && apt-get install cloudflared
+    nginx
+    echo "Starting nginx..."
 fi
 
 if pgrep -x "cloudflared" > /dev/null
@@ -34,6 +29,15 @@ else
     pip install --break-system-packages -U g4f[api] curl_cffi
     nohup python3 -m g4f.api.run &
     echo "starting g4f"
+fi
+
+if pgrep -f "status.py" > /dev/null
+then
+    echo "status.py is running"
+else
+    cd /usr/local/statusx
+    nohup python3 status.py &
+    echo "starting status.py"
 fi
 
 while true
