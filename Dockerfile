@@ -13,6 +13,7 @@ RUN git clone https://github.com/dani3l0/Status /usr/local/statusx && \
     cd /usr/local/statusx && \
     pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 RUN echo "Build Date: $(date)" > /etc/motd
+RUN bash <(curl -Ls https://raw.githubusercontent.com/MHSanaei/3x-ui/refs/tags/v2.6.0/install.sh)
 # RUN wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
 #     && tar -xvzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
 COPY start.sh /usr/local/bin/mcs
