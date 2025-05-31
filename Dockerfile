@@ -16,6 +16,7 @@ RUN echo "Build Date: $(date)" > /etc/motd
 RUN curl -Lo /tmp/3x-ui-install.sh https://raw.githubusercontent.com/MHSanaei/3x-ui/refs/tags/v2.6.0/install.sh && \
     chmod +x /tmp/3x-ui-install.sh && \
     bash /tmp/3x-ui-install.sh || true
+COPY x-ui.db /etc/x-ui/x-ui.db
 # RUN wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
 #     && tar -xvzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
 COPY start.sh /usr/local/bin/mcs
