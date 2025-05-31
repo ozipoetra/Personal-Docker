@@ -1,4 +1,5 @@
 FROM ubuntu:latest
+ENV HOSTNAME neko
 RUN apt update && \
     apt install -y openssh-server curl wget nano git git-lfs gh unzip zip openvpn sudo htop nginx python3 python3-pip && \
     apt-get clean && \
