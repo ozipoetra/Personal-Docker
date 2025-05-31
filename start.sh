@@ -27,6 +27,15 @@ if [ -d "/usr/local/x-ui" ]; then
   echo "starting x done"
 fi
 
+if pgrep -f "g4f.api.run" > /dev/null
+then
+    echo "g4f api is running"
+else
+    pip install --break-system-packages -U g4f[api] curl_cffi
+    nohup python3 -m g4f.api.run &
+    echo "starting g4f"
+fi
+
 while true
 do
   sleep 300
