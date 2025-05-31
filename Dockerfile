@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 RUN apt update
-RUN apt install -y openssh-server curl wget nano git git-lfs gh unzip openvpn sudo
+RUN apt install -y openssh-server curl wget nano git git-lfs gh unzip zip openvpn sudo htop nginx python3 python3-pip
 COPY sshd_config /etc/ssh/sshd_config
 RUN echo "Build Date: $(date)" > /etc/motd
 # RUN wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
