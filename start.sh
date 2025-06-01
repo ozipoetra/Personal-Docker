@@ -37,8 +37,25 @@ else
     echo "Starting bedrock..."
 fi
 
+if pgrep -x "cloudflared" > /dev/null
+then
+    echo "cloudflared is Running"
+else
+    nohup cloudflared tunnel run --token "$cloudflare_token" &
+    echo "Starting cloudflared..."
+fi
+
+if pgrep -f "status.py" > /dev/null
+then
+    echo "status.py is running"
+else
+    cd /usr/local/statusx
+    nohup python3 status.py &
+    echo "starting status.py"
+fi
+
 while true
 do
-  sleep 300
+  sleep 60
   git status
 done
