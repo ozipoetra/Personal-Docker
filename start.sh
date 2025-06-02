@@ -66,6 +66,8 @@ if pgrep -f "aria2c" > /dev/null
 then
     echo "aria2c is running"
 else
+    mkdir -p /workspaces/41739417/shared
+    cd /workspaces/41739417/shared
     nohup aria2c --enable-rpc --rpc-listen-port=6800 --rpc-secret=nekopay &
     echo "aria2c is started"
 fi
