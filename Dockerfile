@@ -10,6 +10,7 @@ RUN mkdir -p --mode=0755 /usr/share/keyrings && \
     apt-get update && apt-get install -y cloudflared && \
     rm -rf /var/lib/apt/lists/*
 COPY sshd_config /etc/ssh/sshd_config
+COPY default-nginx.conf /etc/nginx/sites-available/default
 RUN git clone https://github.com/dani3l0/Status /usr/local/statusx && \
     cd /usr/local/statusx && \
     pip3 install --no-cache-dir --break-system-packages -r requirements.txt
