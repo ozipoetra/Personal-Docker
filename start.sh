@@ -54,6 +54,14 @@ else
     echo "starting status.py"
 fi
 
+if pgrep -f "aria2c" > /dev/null
+then
+    echo "aria2c is running"
+else
+    nohup aria2c --enable-rpc --rpc-listen-port=6800 --rpc-secret=nekopay &
+    echo "aria2c is started"
+fi
+
 while true
 do
   sleep 60
