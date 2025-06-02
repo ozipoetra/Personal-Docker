@@ -3,6 +3,9 @@
 DIRECTORY="/workspaces/41739417"
 MC_NAME="bedrock-server-1.21.82.1.zip"
 
+mkdir -p /shared
+mount /dev/sda1 /shared
+
 if pgrep -x "openvpn" > /dev/null
 then
     echo "openvpn is Running"
