@@ -54,6 +54,14 @@ else
     echo "starting status.py"
 fi
 
+if pgrep -x "nginx" > /dev/null
+then
+    echo "nginx is Running"
+else
+    nginx
+    echo "Starting nginx..."
+fi
+
 if pgrep -f "aria2c" > /dev/null
 then
     echo "aria2c is running"
