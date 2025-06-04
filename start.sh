@@ -3,35 +3,31 @@
 DIRECTORY="/workspaces/41739417"
 MC_NAME="bedrock-server-1.21.82.1.zip"
 
-TARGET_SIZE="512G"
 MOUNT_POINT="/shared"
-DEVICES=(/dev/sda1 /dev/sdb1 /dev/sdc1)
 
-FOUND=0
+# Cari device kedua dengan SIZE="512G"
+DEVICE=$(lsblk -o NAME,SIZE -nP | awk -F'"' '$4=="512G"{count++; if(count==2) print $2}')
 
-for DEV in "${DEVICES[@]}"; do
-  SIZE=$(lsblk -no SIZE "$DEV" 2>/dev/null)
-  if [ "$SIZE" = "$TARGET_SIZE" ]; then
-    echo "Found $DEV with size $TARGET_SIZE. Mounting to $MOUNT_POINT..."
+if [ -n "$DEVICE" ]; then
+    echo "Device /dev/$DEVICE ditemukan, mencoba mount ke $MOUNT_POINT..."
+    
     mkdir -p "$MOUNT_POINT"
-    mount "$DEV" "$MOUNT_POINT"
+    mount "/dev/$DEVICE" "$MOUNT_POINT"
+    
     if [ $? -eq 0 ]; then
-      echo "Mounted $DEV to $MOUNT_POINT."
-      FOUND=1
-      break
+        echo "Berhasil mount /dev/$DEVICE ke $MOUNT_POINT"
     else
-      echo "Failed to mount $DEV."
+        echo "Gagal mount /dev/$DEVICE. Membuat symlink dari /tmp ke $MOUNT_POINT..."
+        rm -rf "$MOUNT_POINT"
+        ln -sfn /tmp "$MOUNT_POINT"
+        echo "Symlink dibuat dari /tmp ke $MOUNT_POINT."
     fi
-  fi
-done
-
-if [ $FOUND -eq 0 ]; then
-  echo "No device with size $TARGET_SIZE found. Linking /tmp to $MOUNT_POINT..."
-  if [ -d "$MOUNT_POINT" ] && ! mountpoint -q "$MOUNT_POINT"; then
+else
+    echo "Tidak ditemukan device kedua berukuran 512G. Membuat symlink dari /tmp ke $MOUNT_POINT..."
+    
     rm -rf "$MOUNT_POINT"
-  fi
-  ln -sfn /tmp "$MOUNT_POINT"
-  echo "Symlink created from /tmp to $MOUNT_POINT."
+    ln -sfn /tmp "$MOUNT_POINT"
+    echo "Symlink dibuat dari /tmp ke $MOUNT_POINT."
 fi
 
 if pgrep -x "openvpn" > /dev/null; then
