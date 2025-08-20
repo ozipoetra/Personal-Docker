@@ -75,6 +75,12 @@ else
   echo "Starting cloudflared..."
 fi
 
+if [ -d "/usr/local/x-ui" ]; then
+  cd /usr/local/x-ui
+  nohup ./x-ui &
+  echo "starting x done"
+fi
+
 if pgrep -f "status.py" > /dev/null; then
   echo "status.py is running"
 else
