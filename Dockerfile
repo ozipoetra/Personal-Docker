@@ -17,6 +17,6 @@ RUN git clone https://github.com/dani3l0/Status /usr/local/statusx && \
 RUN echo "Build Date: $(date)" > /etc/motd
 # RUN wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
 #     && tar -xvzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
-COPY start.sh /usr/local/bin/mcs
-RUN chmod +x /usr/local/bin/mcs
-ENTRYPOINT ["/usr/local/bin/mcs"]
+COPY start.sh /usr/local/bin/neko-init
+RUN chmod +x /usr/local/bin/neko-init
+ENTRYPOINT ["/usr/local/bin/neko-init"]

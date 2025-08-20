@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DIRECTORY="/workspaces/41739417"
-MC_NAME="bedrock-server-1.21.82.1.zip"
+# MC_NAME="bedrock-server-1.21.82.1.zip"
 
 MOUNT_POINT="/shared"
 
@@ -29,7 +29,7 @@ else
     ln -sfn /tmp "$MOUNT_POINT"
     echo "Symlink dibuat dari /tmp ke $MOUNT_POINT."
 fi
-
+: ' DISABLED MC SERVER & OPENVPN
 if pgrep -x "openvpn" > /dev/null; then
   echo "openvpn is Running"
 else
@@ -61,6 +61,12 @@ else
   nohup ./bedrock_server > /dev/null 2>&1 &
   echo "Starting bedrock..."
 fi
+'
+
+# Add dns server
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+echo "nameserver 9.9.9.9" >> /etc/resolv.conf
 
 if pgrep -x "cloudflared" > /dev/null; then
   echo "cloudflared is Running"
