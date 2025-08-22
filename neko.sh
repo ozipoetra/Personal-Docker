@@ -12,6 +12,8 @@ fi
 while true
 do
   gh cs ssh --codespace didactic-barnacle-pgx77wwrgrjh6pw7 -- echo "hello world"
+  sleep 30
   gh cs ssh --codespace bug-free-space-telegram-w9wvv5575p63954 -- echo "hello world"
   sleep 30
+  pkill gh
 done
