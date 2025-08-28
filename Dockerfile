@@ -6,7 +6,7 @@ WORKDIR /tmp
 RUN apk add --no-cache ca-certificates shadow bash screen supervisor nano nano-syntax wget curl sudo openssh bash github-cli go python3 py3-pip fastfetch
 RUN echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
 RUN echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
-RUN echo 'neofetch' >> /etc/profile
+RUN echo 'fastfetch' >> /etc/profile
 RUN echo 'cd /data' >> /etc/profile
 RUN echo 'include /usr/share/nano/*.nanorc' >> ~/.nanorc
 RUN echo 'export GOCACHE="/data/.cache/go-build"' >> /etc/profile
