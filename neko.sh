@@ -11,9 +11,10 @@ if [ -d "/root/.config/" ]; then
 fi
 while true
 do
-  gh cs ssh --codespace didactic-barnacle-pgx77wwrgrjh6pw7 -- echo "hello world"
+  gh cs list | grep -v "NAME" | grep -v "^$" | head -n 1 | awk '{print "gh cs ssh --codespace "$1" -- hostname && exit"}' | bash
   sleep 300
-  gh cs ssh --codespace bug-free-space-telegram-w9wvv5575p63954 -- echo "hello world"
+  pkill gh
+  gh cs list | grep -v "NAME" | grep -v "^$" | sed -n '2p' | awk '{print "gh cs ssh --codespace "$1" -- hostname && exit"}' | bash
   sleep 300
   pkill gh
 done
