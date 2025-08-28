@@ -1,4 +1,4 @@
-FROM alpine:edge
+FROM alpine:latest
 EXPOSE 1337
 ENV PIP_ROOT_USER_ACTION=ignore
 USER root
