@@ -3,8 +3,7 @@ EXPOSE 1337
 ENV PIP_ROOT_USER_ACTION=ignore
 USER root
 WORKDIR /tmp
-RUN apk add --no-cache ca-certificates shadow bash screen supervisor nano nano-syntax wget curl sudo openssh bash github-cli go python3 py3-pip
-RUN apk add --no-cache neofetch --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing/
+RUN apk add --no-cache ca-certificates shadow bash screen supervisor nano nano-syntax wget curl sudo openssh bash github-cli go python3 py3-pip fastfetch
 RUN echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
 RUN echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
 RUN echo 'neofetch' >> /etc/profile
