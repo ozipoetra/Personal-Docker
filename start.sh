@@ -114,12 +114,3 @@ else
   wg-quick up sg10
   echo "WireGuard interface sg10 is NOT running. Attempting to start..."
 fi
-
-: '
-# Write countdown to README.txt every 60 seconds
-while true; do
-  sleep 60
-  TIME_LEFT=$(awk '{m=720-int($1/60); h=int(m/60); mm=m%60; if(m<1) print "now"; else { out=""; if(h>0) out=h" hours"; if(mm>0) out=out" "mm" minutes"; print out }}' /proc/uptime)
-  printf "## THIS FILE IS DYNAMIC AND UPDATED EACH 60 SECONDS ##\n\nMSG: THIS IS TEMPORARY DISK, AND WILL BE RESETED IN : %s\n" "$TIME_LEFT" > "$MOUNT_POINT/README.txt"
-done
-'
