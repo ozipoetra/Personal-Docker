@@ -29,6 +29,7 @@ else
     ln -sfn /tmp "$MOUNT_POINT"
     echo "Symlink dibuat dari /tmp ke $MOUNT_POINT."
 fi
+
 : ' DISABLED MC SERVER & OPENVPN
 if pgrep -x "openvpn" > /dev/null; then
   echo "openvpn is Running"
@@ -89,6 +90,7 @@ else
   echo "starting status.py"
 fi
 
+: ' disable nginx & aria2c
 if pgrep -x "nginx" > /dev/null; then
   echo "nginx is Running"
 else
@@ -103,10 +105,21 @@ else
   nohup aria2c --enable-rpc --rpc-listen-port=6800 --rpc-secret=nekopay > /dev/null 2>&1 &
   echo "aria2c is started"
 fi
+'
 
+if ip link show sg10 up > /dev/null 2>&1; then
+  echo "WireGuard interface sg10 is running"
+else
+  cp $DIRECTORY/sg10.conf /etc/wireguard/
+  wg-quick up sg10
+  echo "WireGuard interface sg10 is NOT running. Attempting to start..."
+fi
+
+: '
 # Write countdown to README.txt every 60 seconds
 while true; do
   sleep 60
   TIME_LEFT=$(awk '{m=720-int($1/60); h=int(m/60); mm=m%60; if(m<1) print "now"; else { out=""; if(h>0) out=h" hours"; if(mm>0) out=out" "mm" minutes"; print out }}' /proc/uptime)
   printf "## THIS FILE IS DYNAMIC AND UPDATED EACH 60 SECONDS ##\n\nMSG: THIS IS TEMPORARY DISK, AND WILL BE RESETED IN : %s\n" "$TIME_LEFT" > "$MOUNT_POINT/README.txt"
 done
+'
