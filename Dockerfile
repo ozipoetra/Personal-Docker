@@ -1,7 +1,6 @@
 FROM ubuntu:latest
-ENV HOSTNAME neko
 RUN apt update && \
-    apt install -y openssh-server curl wget nano git git-lfs gh unzip zip openvpn sudo htop nginx aria2 python3 python3-pip net-tools wireguard-go && \
+    apt install -y openssh-server curl wget nano git git-lfs gh unzip zip openvpn sudo htop nginx aria2 python3 python3-pip net-tools wireguard && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN mkdir -p --mode=0755 /usr/share/keyrings && \
@@ -9,11 +8,8 @@ RUN mkdir -p --mode=0755 /usr/share/keyrings && \
     echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' | tee /etc/apt/sources.list.d/cloudflared.list && \
     apt-get update && apt-get install -y cloudflared && \
     rm -rf /var/lib/apt/lists/*
-COPY sshd_config /etc/ssh/sshd_config
-COPY default-nginx.conf /etc/nginx/sites-available/default
-RUN git clone https://github.com/dani3l0/Status /usr/local/statusx && \
-    cd /usr/local/statusx && \
-    pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+# COPY sshd_config /etc/ssh/sshd_config
+# COPY default-nginx.conf /etc/nginx/sites-available/default
 RUN curl -Lo /tmp/3x-ui-install.sh https://raw.githubusercontent.com/MHSanaei/3x-ui/refs/tags/v2.6.0/install.sh && \
     chmod +x /tmp/3x-ui-install.sh && \
     bash /tmp/3x-ui-install.sh || true
