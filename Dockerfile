@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 RUN apt update && \
-    apt install -y openssh-server curl wget nano git git-lfs gh unzip zip openvpn sudo htop nginx aria2 python3 python3-pip net-tools wireguard-go && \
+    apt install -y openssh-server curl wget nano git git-lfs gh unzip zip openvpn sudo htop nginx aria2 python3 python3-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN mkdir -p --mode=0755 /usr/share/keyrings && \
