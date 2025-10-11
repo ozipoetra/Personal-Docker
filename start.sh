@@ -114,5 +114,5 @@ else
   sleep 60
   mkdir -p /etc/wireguard
   cp $DIRECTORY/sg10.conf /etc/wireguard/
-  wg-quick up sg10
+  # wg-quick up sg10
 fi
