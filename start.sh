@@ -82,6 +82,7 @@ if [ -d "/usr/local/x-ui" ]; then
   echo "starting x done"
 fi
 
+: ' Disable Status & Nginx & Aria2c
 if pgrep -f "status.py" > /dev/null; then
   echo "status.py is running"
 else
@@ -90,7 +91,6 @@ else
   echo "starting status.py"
 fi
 
-: ' Disable Nginx & Aria2c
 if pgrep -x "nginx" > /dev/null; then
   echo "nginx is Running"
 else
