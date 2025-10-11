@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 RUN apt update && \
-    apt install -y curl wget nano git git-lfs gh unzip zip openvpn sudo htop nginx aria2 python3 python3-pip && \
+    apt install -y openssh-server openssh-client curl wget nano git git-lfs gh unzip zip openvpn sudo htop python3 python3-pip wireguard net-tools screen && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN mkdir -p --mode=0755 /usr/share/keyrings && \
@@ -8,7 +8,7 @@ RUN mkdir -p --mode=0755 /usr/share/keyrings && \
     echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' | tee /etc/apt/sources.list.d/cloudflared.list && \
     apt-get update && apt-get install -y cloudflared && \
     rm -rf /var/lib/apt/lists/*
-# COPY sshd_config /etc/ssh/sshd_config
+COPY sshd_config /etc/ssh/sshd_config
 # COPY default-nginx.conf /etc/nginx/sites-available/default
 RUN curl -Lo /tmp/3x-ui-install.sh https://raw.githubusercontent.com/MHSanaei/3x-ui/refs/tags/v2.6.0/install.sh && \
     chmod +x /tmp/3x-ui-install.sh && \
