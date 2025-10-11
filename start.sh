@@ -110,7 +110,8 @@ fi
 if ip link show sg10 up > /dev/null 2>&1; then
   echo "WireGuard interface sg10 is running"
 else
-  echo "Starting wireuard...."
+  echo "Starting wireguard...."
+  sleep 60
   mkdir -p /etc/wireguard
   cp $DIRECTORY/sg10.conf /etc/wireguard/
   wg-quick up sg10
