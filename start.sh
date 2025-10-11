@@ -90,7 +90,7 @@ else
   echo "starting status.py"
 fi
 
-: ' disable nginx & aria2c
+: ' Disable Nginx & Aria2c
 if pgrep -x "nginx" > /dev/null; then
   echo "nginx is Running"
 else
@@ -105,7 +105,6 @@ else
   nohup aria2c --enable-rpc --rpc-listen-port=6800 --rpc-secret=nekopay > /dev/null 2>&1 &
   echo "aria2c is started"
 fi
-'
 
 if ip link show sg10 up > /dev/null 2>&1; then
   echo "WireGuard interface sg10 is running"
@@ -116,3 +115,4 @@ else
   cp $DIRECTORY/sg10.conf /etc/wireguard/
   # wg-quick up sg10
 fi
+'
