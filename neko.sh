@@ -23,11 +23,11 @@ fi
 while true; do
   echo "▶️  Mengambil codespace pertama..."
   gh cs list | grep -v "NAME" | grep -v "^$" | head -n 1 | awk '{print "gh cs ssh --codespace "$1" -- hostname && exit"}' | bash
-  sleep 300
+  sleep 30
   pkill gh
 
   echo "▶️  Mengambil codespace kedua..."
   gh cs list | grep -v "NAME" | grep -v "^$" | sed -n '2p' | awk '{print "gh cs ssh --codespace "$1" -- hostname && exit"}' | bash
-  sleep 300
+  sleep 30
   pkill gh
 done
