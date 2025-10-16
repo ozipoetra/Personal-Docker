@@ -2,7 +2,7 @@
 
 # Configuration
 TIMEOUT_SECONDS=30
-MAX_RETRIES=3
+MAX_RETRIES=5
 SLEEP_BETWEEN_COMMANDS=30
 
 # Colors for output
@@ -137,7 +137,7 @@ connect_codespace() {
     log_info "Menghubungkan ke codespace: $codespace_name"
     
     # Connect dengan timeout
-    if run_with_timeout $TIMEOUT_SECONDS "gh cs ssh --codespace $codespace_name -- hostname"; then
+    if run_with_timeout $TIMEOUT_SECONDS "gh cs ssh --codespace $codespace_name -- 'echo "Hostname: $(hostname)" && echo "Uptime: $(uptime -p)" && exit'"; then
       log_success "Koneksi ke codespace #${index} berhasil"
       return 0
     else
