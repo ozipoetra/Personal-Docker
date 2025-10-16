@@ -138,7 +138,7 @@ connect_codespace() {
     
     # Connect dengan timeout dan jalankan command untuk mendapatkan info
     # Perbaikan: gunakan proper quoting untuk remote command
-    local remote_cmd='hostname_info=$(hostname); uptime_info=$(uptime -p 2>/dev/null || uptime); echo "Hostname: $hostname_info"; echo "Uptime: $uptime_info"'
+    local remote_cmd='hostname_info=$(hostname); uptime_info=$(uptime -p 2>/dev/null || uptime); echo "Hostname: $hostname_info"; echo "Uptime: $uptime_info"; exit 0'
     
     local output=$(run_with_timeout $TIMEOUT_SECONDS "gh cs ssh --codespace '$codespace_name' -- '$remote_cmd' 2>&1")
     local exit_code=$?
