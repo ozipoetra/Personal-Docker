@@ -36,9 +36,17 @@ trap cleanup SIGTERM SIGINT
 # Start the health server in background (optional, only if HTTP health checks are used)
 if [ "${ENABLE_HTTP_HEALTH:-true}" = "true" ]; then
     log_info "Starting HTTP health server on port ${HEALTH_PORT:-8080}..."
-    /app/health-server.sh &
+    python3 /app/health-server.py &
     HEALTH_PID=$!
     log_info "Health server started with PID $HEALTH_PID"
+    
+    # Give it a moment to start and test if it's running
+    sleep 2
+    if ! kill -0 $HEALTH_PID 2>/dev/null; then
+        log_error "Health server failed to start!"
+        exit 1
+    fi
+    log_info "Health server confirmed running"
 fi
 
 # Start the main application
@@ -60,7 +68,7 @@ while true; do
     if [ "${ENABLE_HTTP_HEALTH:-true}" = "true" ] && ! kill -0 $HEALTH_PID 2>/dev/null; then
         log_error "Health server died unexpectedly!"
         # Try to restart health server
-        /app/health-server.sh &
+        python3 /app/health-server.py &
         HEALTH_PID=$!
         log_info "Health server restarted with PID $HEALTH_PID"
     fi
