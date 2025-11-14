@@ -4,6 +4,7 @@
 TIMEOUT_SECONDS=30
 MAX_RETRIES=5
 SLEEP_BETWEEN_COMMANDS=30
+HEALTH_FILE="${HEALTH_FILE:-/tmp/health/heartbeat}"
 
 # Log levels (can be controlled via environment variable)
 LOG_LEVEL=${LOG_LEVEL:-INFO}  # DEBUG, INFO, WARNING, ERROR
@@ -18,6 +19,20 @@ SUMMARY_INTERVAL=3600  # Log summary every hour
 # Simple timestamp function
 timestamp() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+# Update heartbeat file for health checks
+update_heartbeat() {
+  mkdir -p "$(dirname "$HEALTH_FILE")"
+  cat > "$HEALTH_FILE" << EOF
+TIMESTAMP=$(date +%s)
+DATETIME=$(timestamp)
+SUCCESS_COUNT=$SUCCESS_COUNT
+ERROR_COUNT=$ERROR_COUNT
+ITERATION_COUNT=$ITERATION_COUNT
+UPTIME=$(($(date +%s) - LAST_SUMMARY_TIME))
+PID=$$
+EOF
 }
 
 # Structured logging for Docker (JSON format optional)
@@ -117,6 +132,7 @@ setup_github_auth() {
     
     if run_with_timeout $TIMEOUT_SECONDS "gh auth status >/dev/null 2>&1"; then
       log_info "GitHub CLI authenticated successfully"
+      update_heartbeat
       return 0
     fi
     
@@ -124,6 +140,7 @@ setup_github_auth() {
     if echo "$GITHUB_TOKEN" | run_with_timeout $TIMEOUT_SECONDS "gh auth login --with-token" >/dev/null 2>&1; then
       if run_with_timeout $TIMEOUT_SECONDS "gh auth setup-git" >/dev/null 2>&1; then
         log_info "GitHub authentication setup completed"
+        update_heartbeat
         return 0
       fi
     fi
@@ -173,6 +190,7 @@ connect_codespace() {
     if [ -z "$codespace_name" ]; then
       log_warning "Codespace #${index} not found"
       ERROR_COUNT=$((ERROR_COUNT + 1))
+      update_heartbeat
       return 1
     fi
     
@@ -185,6 +203,7 @@ connect_codespace() {
     
     if [ $exit_code -eq 0 ]; then
       SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+      update_heartbeat
       
       # Only log detailed success occasionally (every 10th success or first success)
       if [ $((SUCCESS_COUNT % 10)) -eq 1 ] || [ $SUCCESS_COUNT -eq 1 ]; then
@@ -198,6 +217,7 @@ connect_codespace() {
       return 0
     else
       ERROR_COUNT=$((ERROR_COUNT + 1))
+      update_heartbeat
       log_error "Failed to connect to codespace #${index}: $codespace_name"
       if [ -n "$output" ]; then
         log_debug "Error output: $output"
@@ -219,6 +239,7 @@ cleanup() {
   log_info "Cleaning up processes..."
   pkill -9 gh 2>/dev/null
   log_info "Final stats: Iterations=$ITERATION_COUNT, Successes=$SUCCESS_COUNT, Errors=$ERROR_COUNT"
+  rm -f "$HEALTH_FILE"
 }
 
 # Graceful shutdown handler
@@ -236,6 +257,7 @@ trap cleanup EXIT
 log_info "Starting Codespace Connector Service"
 log_info "Configuration: TIMEOUT=${TIMEOUT_SECONDS}s, MAX_RETRIES=${MAX_RETRIES}, SLEEP=${SLEEP_BETWEEN_COMMANDS}s"
 log_info "Log level: ${LOG_LEVEL}"
+log_info "Health file: ${HEALTH_FILE}"
 
 # Setup GitHub authentication
 if ! setup_github_auth; then
@@ -245,9 +267,15 @@ fi
 
 log_info "Service started successfully, entering main loop"
 
+# Initial heartbeat
+update_heartbeat
+
 # Main loop
 while true; do
   ITERATION_COUNT=$((ITERATION_COUNT + 1))
+  
+  # Update heartbeat at the start of each iteration
+  update_heartbeat
   
   # Connect to codespace 1
   connect_codespace 1
