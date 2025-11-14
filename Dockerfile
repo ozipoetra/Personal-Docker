@@ -9,21 +9,25 @@ RUN apk add --no-cache \
     openssh-client \
     ca-certificates \
     github-cli \
+    procps \
     && rm -rf /var/cache/apk/* /tmp/*
 
 # Create non-root user (SECURITY!)
 RUN addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser && \
     # Create necessary directories
-    mkdir -p /app /home/appuser/.ssh && \
-    chown -R appuser:appuser /app /home/appuser
+    mkdir -p /app /home/appuser/.ssh /tmp/health && \
+    chown -R appuser:appuser /app /home/appuser /tmp/health
 
 # Set working directory
 WORKDIR /app
 
-# Copy script with proper ownership
+# Copy scripts with proper ownership
 COPY --chown=appuser:appuser neko.sh /app/neko-init.sh
-RUN chmod +x /app/neko-init.sh
+COPY --chown=appuser:appuser health-check.sh /app/health-check.sh
+COPY --chown=appuser:appuser health-server.sh /app/health-server.sh
+COPY --chown=appuser:appuser entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/neko-init.sh /app/health-check.sh /app/health-server.sh /app/entrypoint.sh
 
 # Switch to non-root user (IMPORTANT!)
 USER appuser
@@ -31,11 +35,21 @@ USER appuser
 # Set environment variables
 ENV HOME=/home/appuser \
     PATH=/app:$PATH \
-    LOG_LEVEL=INFO
+    LOG_LEVEL=INFO \
+    HEALTH_FILE=/tmp/health/heartbeat \
+    HEALTH_PORT=8080 \
+    ENABLE_HTTP_HEALTH=true
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD pgrep -f neko-init.sh || exit 1
+# Enhanced health check for Northflank
+# - Checks if script is running
+# - Checks if heartbeat file is recent (updated within last 2 minutes)
+# - Checks if too many errors have accumulated
+# Northflank will use this for container health monitoring
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD ["/app/health-check.sh"]
 
-# Run the script
-CMD ["/app/neko-init.sh"]
+# Expose health endpoint port (optional for HTTP health checks)
+EXPOSE 8080
+
+# Run the entrypoint script
+CMD ["/app/entrypoint.sh"]
