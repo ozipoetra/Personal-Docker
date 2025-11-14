@@ -10,6 +10,7 @@ RUN apk add --no-cache \
     ca-certificates \
     github-cli \
     procps \
+    python3 \
     && rm -rf /var/cache/apk/* /tmp/*
 
 # Create non-root user (SECURITY!)
@@ -25,9 +26,9 @@ WORKDIR /app
 # Copy scripts with proper ownership
 COPY --chown=appuser:appuser neko.sh /app/neko-init.sh
 COPY --chown=appuser:appuser health-check.sh /app/health-check.sh
-COPY --chown=appuser:appuser health-server.sh /app/health-server.sh
+COPY --chown=appuser:appuser health-server.py /app/health-server.py
 COPY --chown=appuser:appuser entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/neko-init.sh /app/health-check.sh /app/health-server.sh /app/entrypoint.sh
+RUN chmod +x /app/neko-init.sh /app/health-check.sh /app/health-server.py /app/entrypoint.sh
 
 # Switch to non-root user (IMPORTANT!)
 USER appuser
