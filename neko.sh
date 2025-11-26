@@ -156,76 +156,124 @@ setup_github_auth() {
   return 1
 }
 
-# Connect to codespace
+# List all available codespaces
+list_codespaces() {
+  log_debug "Listing all codespaces..."
+  
+  local codespace_list=$(run_with_timeout $TIMEOUT_SECONDS "gh cs list 2>/dev/null")
+  local exit_code=$?
+  
+  if [ $exit_code -eq 124 ]; then
+    log_warning "Codespace list command timed out"
+    return 1
+  elif [ $exit_code -ne 0 ]; then
+    log_warning "Failed to list codespaces (exit code: $exit_code)"
+    return 1
+  fi
+  
+  # Parse and display codespaces
+  local count=0
+  echo "$codespace_list" | grep -v "NAME" | grep -v "^$" | while IFS= read -r line; do
+    count=$((count + 1))
+    local name=$(echo "$line" | awk '{print $1}')
+    log_debug "Found codespace #${count}: $name"
+  done
+  
+  echo "$codespace_list"
+  return 0
+}
+
+# Connect to codespace by name
+connect_codespace_by_name() {
+  local codespace_name=$1
+  local index=$2
+  
+  if [ -z "$codespace_name" ]; then
+    log_warning "Codespace #${index} not found"
+    ERROR_COUNT=$((ERROR_COUNT + 1))
+    update_heartbeat
+    return 1
+  fi
+  
+  log_debug "Connecting to codespace #${index}: $codespace_name"
+  
+  local remote_cmd='hostname_info=$(hostname); uptime_info=$(uptime -p 2>/dev/null || uptime); echo "Hostname: $hostname_info"; echo "Uptime: $uptime_info"; exit 0'
+  
+  # Use a shorter timeout for SSH connection to fail faster if unreachable
+  local output=$(timeout 25 gh cs ssh --codespace "$codespace_name" -- "$remote_cmd" 2>&1)
+  local exit_code=$?
+  
+  if [ $exit_code -eq 0 ]; then
+    SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+    update_heartbeat
+    
+    # Only log detailed success occasionally (every 10th success or first success)
+    if [ $((SUCCESS_COUNT % 10)) -eq 1 ] || [ $SUCCESS_COUNT -eq 1 ]; then
+      log_info "Connected to codespace #${index}: $codespace_name"
+      echo "$output" | while IFS= read -r line; do
+        log_debug "  $line"
+      done
+    fi
+    
+    log_summary
+    return 0
+  elif [ $exit_code -eq 124 ]; then
+    ERROR_COUNT=$((ERROR_COUNT + 1))
+    update_heartbeat
+    log_error "Connection to codespace #${index} timed out: $codespace_name"
+    return 1
+  else
+    ERROR_COUNT=$((ERROR_COUNT + 1))
+    update_heartbeat
+    log_error "Failed to connect to codespace #${index}: $codespace_name (exit code: $exit_code)"
+    if [ -n "$output" ]; then
+      log_debug "Error output: $output"
+    fi
+    return 1
+  fi
+}
+
+# Connect to codespace with retry
 connect_codespace() {
   local index=$1
   local retries=0
   
   while [ $retries -lt $MAX_RETRIES ]; do
-    log_debug "Fetching codespace #${index} (attempt $((retries + 1))/$MAX_RETRIES)"
+    log_debug "Attempting to connect to codespace #${index} (attempt $((retries + 1))/$MAX_RETRIES)"
     
-    local codespace_list=$(run_with_timeout $TIMEOUT_SECONDS "gh cs list 2>/dev/null")
-    local exit_code=$?
+    # Get fresh list of codespaces
+    local codespace_list=$(list_codespaces)
     
-    if [ $exit_code -eq 124 ]; then
-      log_warning "Codespace list command timed out"
+    if [ $? -ne 0 ]; then
+      log_warning "Failed to list codespaces, retrying..."
       retries=$((retries + 1))
-      sleep 5
-      continue
-    elif [ $exit_code -ne 0 ]; then
-      log_warning "Failed to list codespaces (exit code: $exit_code)"
-      retries=$((retries + 1))
-      sleep 5
+      if [ $retries -lt $MAX_RETRIES ]; then
+        sleep 5
+      fi
       continue
     fi
     
-    # Parse codespace by index
+    # Parse codespace by index (using awk for more reliable parsing)
     local codespace_name=""
-    if [ "$index" = "1" ]; then
-      codespace_name=$(echo "$codespace_list" | grep -v "NAME" | grep -v "^$" | head -n 1 | awk '{print $1}')
-    else
-      codespace_name=$(echo "$codespace_list" | grep -v "NAME" | grep -v "^$" | sed -n '2p' | awk '{print $1}')
-    fi
+    codespace_name=$(echo "$codespace_list" | grep -v "NAME" | grep -v "^$" | awk "NR==$index {print \$1}")
     
     if [ -z "$codespace_name" ]; then
-      log_warning "Codespace #${index} not found"
+      log_warning "Codespace #${index} not found in list"
       ERROR_COUNT=$((ERROR_COUNT + 1))
       update_heartbeat
+      
+      # Don't retry if codespace doesn't exist
       return 1
     fi
     
-    log_debug "Connecting to codespace: $codespace_name"
-    
-    local remote_cmd='hostname_info=$(hostname); uptime_info=$(uptime -p 2>/dev/null || uptime); echo "Hostname: $hostname_info"; echo "Uptime: $uptime_info"; exit 0'
-    
-    local output=$(run_with_timeout $TIMEOUT_SECONDS "gh cs ssh --codespace '$codespace_name' -- '$remote_cmd' 2>&1")
-    local exit_code=$?
-    
-    if [ $exit_code -eq 0 ]; then
-      SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-      update_heartbeat
-      
-      # Only log detailed success occasionally (every 10th success or first success)
-      if [ $((SUCCESS_COUNT % 10)) -eq 1 ] || [ $SUCCESS_COUNT -eq 1 ]; then
-        log_info "Connected to codespace #${index}: $codespace_name"
-        echo "$output" | while IFS= read -r line; do
-          log_debug "  $line"
-        done
-      fi
-      
-      log_summary
+    # Try to connect
+    if connect_codespace_by_name "$codespace_name" "$index"; then
       return 0
-    else
-      ERROR_COUNT=$((ERROR_COUNT + 1))
-      update_heartbeat
-      log_error "Failed to connect to codespace #${index}: $codespace_name"
-      if [ -n "$output" ]; then
-        log_debug "Error output: $output"
-      fi
     fi
     
     retries=$((retries + 1))
     if [ $retries -lt $MAX_RETRIES ]; then
+      log_warning "Retrying connection in 5 seconds..."
       sleep 5
     fi
   done
@@ -270,6 +318,12 @@ log_info "Service started successfully, entering main loop"
 # Initial heartbeat
 update_heartbeat
 
+# Get initial list to see what we're working with
+log_info "Discovering available codespaces..."
+initial_list=$(list_codespaces)
+codespace_count=$(echo "$initial_list" | grep -v "NAME" | grep -v "^$" | wc -l)
+log_info "Found $codespace_count codespace(s)"
+
 # Main loop
 while true; do
   ITERATION_COUNT=$((ITERATION_COUNT + 1))
@@ -278,14 +332,24 @@ while true; do
   update_heartbeat
   
   # Connect to codespace 1
+  log_debug "Starting connection attempt for codespace #1"
   connect_codespace 1
   sleep $SLEEP_BETWEEN_COMMANDS
+  
+  # Clean up any hanging gh processes
   pkill -9 gh 2>/dev/null
   
-  # Connect to codespace 2
-  connect_codespace 2
-  sleep $SLEEP_BETWEEN_COMMANDS
-  pkill -9 gh 2>/dev/null
+  # Connect to codespace 2 (only if we have at least 2 codespaces)
+  if [ "$codespace_count" -ge 2 ]; then
+    log_debug "Starting connection attempt for codespace #2"
+    connect_codespace 2
+    sleep $SLEEP_BETWEEN_COMMANDS
+    
+    # Clean up any hanging gh processes
+    pkill -9 gh 2>/dev/null
+  else
+    log_debug "Only 1 codespace available, skipping codespace #2"
+  fi
   
   sleep 5
 done
