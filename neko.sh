@@ -201,7 +201,7 @@ connect_codespace_by_name() {
   
   log_debug "Connecting to codespace #${index}: $codespace_name"
   
-  local remote_cmd='hostname_info=$(hostname); uptime_info=$(uptime -p 2>/dev/null || uptime); echo "Hostname: $hostname_info"; echo "Uptime: $uptime_info"; exit 0'
+  local remote_cmd='hostname_info=$(hostname); uptime_info=$(uptime -p 2>/dev/null || uptime); echo "Hostname: $hostname_info"; echo "Uptime: $uptime_info"; exit;'
   
   # Use a shorter timeout for SSH connection to fail faster if unreachable
   local output=$(timeout 25 gh cs ssh --codespace "$codespace_name" -- "$remote_cmd" 2>&1)
