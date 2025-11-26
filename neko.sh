@@ -160,7 +160,7 @@ setup_github_auth() {
 list_codespaces() {
   log_debug "Listing all codespaces..."
   
-  local codespace_list=$(run_with_timeout $TIMEOUT_SECONDS "gh cs list 2>/dev/null")
+  local codespace_list=$(run_with_timeout $TIMEOUT_SECONDS "gh cs list --json name,displayName,state 2>/dev/null")
   local exit_code=$?
   
   if [ $exit_code -eq 124 ]; then
@@ -171,16 +171,20 @@ list_codespaces() {
     return 1
   fi
   
-  # Parse and display codespaces
-  local count=0
-  echo "$codespace_list" | grep -v "NAME" | grep -v "^$" | while IFS= read -r line; do
-    count=$((count + 1))
-    local name=$(echo "$line" | awk '{print $1}')
-    log_debug "Found codespace #${count}: $name"
-  done
-  
   echo "$codespace_list"
   return 0
+}
+
+# Parse codespace name from JSON list
+get_codespace_name() {
+  local json_list=$1
+  local index=$2
+  
+  # Extract the nth codespace name from JSON
+  # Using basic shell tools to parse JSON (not ideal but works)
+  local name=$(echo "$json_list" | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//' | sed -n "${index}p")
+  
+  echo "$name"
 }
 
 # Connect to codespace by name
@@ -241,8 +245,8 @@ connect_codespace() {
   while [ $retries -lt $MAX_RETRIES ]; do
     log_debug "Attempting to connect to codespace #${index} (attempt $((retries + 1))/$MAX_RETRIES)"
     
-    # Get fresh list of codespaces
-    local codespace_list=$(list_codespaces)
+    # Get fresh list of codespaces in JSON format
+    local codespace_json=$(list_codespaces)
     
     if [ $? -ne 0 ]; then
       log_warning "Failed to list codespaces, retrying..."
@@ -253,9 +257,8 @@ connect_codespace() {
       continue
     fi
     
-    # Parse codespace by index (using awk for more reliable parsing)
-    local codespace_name=""
-    codespace_name=$(echo "$codespace_list" | grep -v "NAME" | grep -v "^$" | awk "NR==$index {print \$1}")
+    # Parse codespace name from JSON
+    local codespace_name=$(get_codespace_name "$codespace_json" "$index")
     
     if [ -z "$codespace_name" ]; then
       log_warning "Codespace #${index} not found in list"
@@ -265,6 +268,8 @@ connect_codespace() {
       # Don't retry if codespace doesn't exist
       return 1
     fi
+    
+    log_debug "Codespace #${index} name: $codespace_name"
     
     # Try to connect
     if connect_codespace_by_name "$codespace_name" "$index"; then
@@ -321,8 +326,17 @@ update_heartbeat
 # Get initial list to see what we're working with
 log_info "Discovering available codespaces..."
 initial_list=$(list_codespaces)
-codespace_count=$(echo "$initial_list" | grep -v "NAME" | grep -v "^$" | wc -l)
+codespace_count=$(echo "$initial_list" | grep -o '"name":"[^"]*"' | wc -l)
 log_info "Found $codespace_count codespace(s)"
+
+# Log the codespace names for debugging
+if [ "$codespace_count" -gt 0 ]; then
+  log_debug "Codespace list:"
+  for i in $(seq 1 $codespace_count); do
+    cs_name=$(get_codespace_name "$initial_list" "$i")
+    log_debug "  #$i: $cs_name"
+  done
+fi
 
 # Main loop
 while true; do
