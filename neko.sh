@@ -159,19 +159,27 @@ setup_github_auth() {
 # List all available codespaces
 list_codespaces() {
   log_debug "Listing all codespaces..."
-  
-  local codespace_list=$(run_with_timeout $TIMEOUT_SECONDS "gh cs list --json name,displayName,state 2>/dev/null")
+
+  # temp file untuk output
+  local tmp=$(mktemp)
+
+  # jalankan dengan timeout, output masuk tmpfile
+  run_with_timeout $TIMEOUT_SECONDS "gh cs list --json name,displayName,state > $tmp 2>/dev/null"
   local exit_code=$?
-  
+
   if [ $exit_code -eq 124 ]; then
     log_warning "Codespace list command timed out"
+    rm -f "$tmp"
     return 1
   elif [ $exit_code -ne 0 ]; then
-    log_warning "Failed to list codespaces (exit code: $exit_code)"
+    log_warning "Failed to list codespaces (exit: $exit_code)"
+    rm -f "$tmp"
     return 1
   fi
-  
-  echo "$codespace_list"
+
+  # return output asli gh cs list
+  cat "$tmp"
+  rm -f "$tmp"
   return 0
 }
 
