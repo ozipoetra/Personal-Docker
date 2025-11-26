@@ -212,7 +212,7 @@ connect_codespace_by_name() {
   local remote_cmd='sleep 5; exit 0'
   
   # Use a shorter timeout for SSH connection to fail faster if unreachable
-  local output=$(gh cs ssh --codespace "$codespace_name" -- "$remote_cmd" 2>&1)
+  local output=$(run_with_timeout 20 gh cs ssh --codespace "$codespace_name" -- "$remote_cmd" 2>&1)
   local exit_code=$?
   
   if [ $exit_code -eq 0 ]; then
