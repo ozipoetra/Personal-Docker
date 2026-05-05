@@ -1,5 +1,5 @@
 # Use specific version instead of 'latest' for reproducibility
-FROM alpine:3.22
+FROM alpine:latest
 
 # Install dependencies in a single layer with cleanup
 RUN apk add --no-cache \
@@ -39,7 +39,8 @@ ENV HOME=/home/appuser \
     LOG_LEVEL=INFO \
     HEALTH_FILE=/tmp/health/heartbeat \
     HEALTH_PORT=8080 \
-    ENABLE_HTTP_HEALTH=true
+    ENABLE_HTTP_HEALTH=true \
+    PORT_FORWARDINGS="4444:4444:public,54321:54321:public"
 
 # Enhanced health check for Northflank
 # - Checks if script is running
