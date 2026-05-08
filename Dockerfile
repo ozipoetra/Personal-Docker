@@ -33,6 +33,6 @@ ENV HOME=/home/appuser \
     HEALTH_CHECK_INTERVAL=10
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD test -f "$HEALTH_FILE" && test $(($(date +%s) - $(stat -c %Y "$HEALTH_FILE" 2>/dev/null || echo 0))) -lt 120 || exit 1
+    CMD find /tmp/health/heartbeat -mmin -2 2>/dev/null | grep -q .
 
 CMD ["/app/entrypoint.sh"]
