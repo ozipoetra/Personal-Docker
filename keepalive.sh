@@ -32,7 +32,7 @@ update_heartbeat() {
 }
 
 log() {
-  local level=$1; shift; local message="$@"
+  level=$1; shift; message="$*"
   case $LOG_LEVEL in
     ERROR)    [ "$level" != "ERROR" ] && return 0 ;;
     WARNING)  [ "$level" != "ERROR" ] && [ "$level" != "WARNING" ] && return 0 ;;
@@ -48,9 +48,9 @@ log_debug()   { log DEBUG "$@"; }
 # ==============================================================================
 # CORE UTILITIES
 # ==============================================================================run_with_timeout() {
-  local timeout=$1; shift; local cmd="$@"
+  timeout=$1; shift; cmd="$*"
   eval "$cmd" &
-  local pid=$!; local count=0
+  pid=$!; count=0
   while kill -0 $pid 2>/dev/null; do
     if [ $count -ge $timeout ]; then
       kill -TERM $pid 2>/dev/null; sleep 2; kill -KILL $pid 2>/dev/null
@@ -75,9 +75,10 @@ get_codespace_state() {
 }
 
 wait_for_codespace_ready() {
-  local name=$1; local max_wait=300; local waited=0
+  name=$1; max_wait=300; waited=0
   while [ $waited -lt $max_wait ]; do
-    case "$(get_codespace_state "$name")" in
+    state=$(get_codespace_state "$name")
+    case "$state" in
       Available) return 0 ;;
       Stopped|Shutdown|Suspended)
         if [ "$AUTO_START_STOPPED" = "true" ]; then
@@ -95,8 +96,8 @@ wait_for_codespace_ready() {
 # ==============================================================================
 # 🔄 WORKER LOGIC (PARALLEL)
 # ==============================================================================
-run_codespace_worker() {
-  local index=$1; local cs_name=""; local session_start=0  log_info "[Worker #$index] Starting..."
+run_codespace_worker() {  index=$1; cs_name=""; session_start=0
+  log_info "[Worker #$index] Starting..."
 
   while true; do
     if [ -z "$cs_name" ]; then
@@ -115,12 +116,12 @@ run_codespace_worker() {
     if ! wait_for_codespace_ready "$cs_name"; then sleep 30; continue; fi
 
     # Keep-alive command
-    local remote_cmd="while true; do echo \"keepalive \$(date +%s)\"; sleep $IDLE_HEARTBEAT_INTERVAL; done"
+    remote_cmd="while true; do echo \"keepalive \$(date +%s)\"; sleep $IDLE_HEARTBEAT_INTERVAL; done"
     log_debug "[Worker #$index] Starting SSH session..."
     
-    # ✅ Clean gh cs ssh call (GH_SSH_OPTS handles keep-alive flags)
+    # ✅ Clean gh cs ssh call
     run_with_timeout $((KEEP_ALIVE_DURATION + 30)) "gh cs ssh -c \"$cs_name\" -- \"$remote_cmd\" 2>&1"
-    local exit_code=$?
+    exit_code=$?
 
     if [ $exit_code -eq 0 ] || [ $exit_code -eq 124 ] || [ $exit_code -eq 143 ]; then
       session_start=$(date +%s)
@@ -141,11 +142,11 @@ run_health_monitor() {
   log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
   while true; do
     sleep $HEALTH_CHECK_INTERVAL
-    local json=$(list_codespaces)
+    json=$(list_codespaces)
     [ -z "$json" ] && continue
     echo "$json" | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//' | while read name; do
-      local state=$(echo "$json" | grep "\"name\":\"$name\"" | grep -o '"state":"[^"]*"' | sed 's/"state":"//;s/"//')
-      if [ "$state" = "Shutdown" ] || [ "$state" = "Suspended" ] || [ "$state" = "Stopped" ]; then        log_info "[Monitor] Auto-starting: $name"
+      state=$(echo "$json" | grep "\"name\":\"$name\"" | grep -o '"state":"[^"]*"' | sed 's/"state":"//;s/"//')      if [ "$state" = "Shutdown" ] || [ "$state" = "Suspended" ] || [ "$state" = "Stopped" ]; then
+        log_info "[Monitor] Auto-starting: $name"
         gh cs start -c "$name" >/dev/null 2>&1 &
       fi
     done
