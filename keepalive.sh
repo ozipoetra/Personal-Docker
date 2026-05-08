@@ -46,8 +46,8 @@ run_with_timeout() {
   eval "$_cmd" &
   _pid=$!
   _count=0
-  while kill -0 "$_pid" 2>/dev/null; do
-    _count=$(( _count + 1 ))    if [ "$_count" -ge "$_timeout" ] 2>/dev/null; then
+  while kill -0 "$_pid" >/dev/null 2>&1; do
+    _count=$(( _count + 1 ))    if [ "$_count" -ge "$_timeout" ]; then
       kill -TERM "$_pid" 2>/dev/null
       sleep 2
       kill -KILL "$_pid" 2>/dev/null
@@ -80,7 +80,7 @@ wait_for_codespace_ready() {
   _name="$1"
   _max_wait=300
   _waited=0
-  while [ "$_waited" -lt "$_max_wait" ] 2>/dev/null; do
+  while [ "$_waited" -lt "$_max_wait" ]; do
     _state=$(get_codespace_state "$_name")
     case "$_state" in
       Available) return 0 ;;
@@ -121,7 +121,7 @@ run_codespace_worker() {
       _now=$(date +%s)
       _elapsed=$(( _now - session_start ))
       _limit=$(( SESSION_ROTATION_HOURS * 3600 ))
-      if [ "$_elapsed" -ge "$_limit" ] 2>/dev/null; then
+      if [ "$_elapsed" -ge "$_limit" ]; then
         log_info "[Worker #$index] Rotation time reached. Reconnecting..."
         session_start=0
       fi
