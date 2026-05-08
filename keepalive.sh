@@ -3,22 +3,17 @@
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
-# Official way to pass SSH options to gh cs ssh (avoids parsing errors)
 export GH_SSH_OPTS="-o ServerAliveInterval=30 -o ServerAliveCountMax=3"
+export GH_NO_UPDATE_NOTIFIER=1
+export GH_PAGER=
 
-MAX_RETRIES=5
 HEALTH_FILE="${HEALTH_FILE:-/tmp/health/heartbeat}"
-
-# 🔄 Keep-Alive & Lifecycle
-KEEP_ALIVE_DURATION=1200        # ~20 mins per session (stays under 30m idle limit)
-SESSION_ROTATION_HOURS=10       # Rotate before GitHub's 12h cap
-AUTO_START_STOPPED=true
-IDLE_HEARTBEAT_INTERVAL=30      # Remote echo frequency
-
-# ⚡ Fast Health Monitor
+KEEP_ALIVE_DURATION=${KEEP_ALIVE_DURATION:-1200}
+SESSION_ROTATION_HOURS=${SESSION_ROTATION_HOURS:-10}
+AUTO_START_STOPPED=${AUTO_START_STOPPED:-true}
+IDLE_HEARTBEAT_INTERVAL=${IDLE_HEARTBEAT_INTERVAL:-30}
 HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-10}
 ENABLE_FAST_MONITOR=${ENABLE_FAST_MONITOR:-true}
-
 LOG_LEVEL=${LOG_LEVEL:-INFO}
 
 # ==============================================================================
@@ -27,7 +22,7 @@ LOG_LEVEL=${LOG_LEVEL:-INFO}
 timestamp() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
 update_heartbeat() {
-  mkdir -p "$(dirname "$HEALTH_FILE")"
+  mkdir -p "$(dirname "$HEALTH_FILE")" 2>/dev/null
   printf "TIMESTAMP=%s\nDATETIME=%s\nPID=%s\n" "$(date +%s)" "$(timestamp)" "$$" > "$HEALTH_FILE"
 }
 
@@ -46,57 +41,77 @@ log_info()    { log INFO "$@"; }
 log_debug()   { log DEBUG "$@"; }
 
 # ==============================================================================
-# CORE UTILITIES
-# ==============================================================================run_with_timeout() {
-  timeout=$1; shift; cmd="$*"
-  eval "$cmd" &
-  pid=$!; count=0
-  while kill -0 $pid 2>/dev/null; do
-    if [ $count -ge $timeout ]; then
-      kill -TERM $pid 2>/dev/null; sleep 2; kill -KILL $pid 2>/dev/null
-      wait $pid 2>/dev/null; return 124
+# CORE UTILITIES (BusyBox Safe)
+# ==============================================================================
+run_with_timeout() {
+  _timeout="${1:-30}"
+  shift
+  _cmd="$*"
+  eval "$_cmd" &  _pid=$!
+  _count=0
+  while kill -0 "$_pid" 2>/dev/null; do
+    _count=$(( _count + 1 ))
+    if [ "${_count:-0}" -ge "${_timeout:-30}" ] 2>/dev/null; then
+      kill -TERM "$_pid" 2>/dev/null
+      sleep 2
+      kill -KILL "$_pid" 2>/dev/null
+      wait "$_pid" 2>/dev/null
+      return 124
     fi
-    sleep 1; count=$((count + 1))
+    sleep 1
   done
-  wait $pid; return $?
+  wait "$_pid" 2>/dev/null
+  return $?
 }
 
 # ==============================================================================
 # GITHUB API HELPERS
 # ==============================================================================
-list_codespaces() { gh cs list --json name,state 2>/dev/null; }
+list_codespaces() { gh cs list --json name,state 2>/dev/null | tr -d ' \n\t'; }
 
 get_codespace_name_by_index() {
-  list_codespaces | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//' | sed -n "${1}p"
+  _json=$(list_codespaces)
+  [ -z "$_json" ] && return 1
+  echo "$_json" | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//' | sed -n "${1}p"
 }
 
 get_codespace_state() {
-  list_codespaces | grep -o "\"name\":\"$1\",\"state\":\"[^\"]*\"" | sed 's/.*"state":"//;s/"//'
+  _json=$(list_codespaces)
+  [ -z "$_json" ] && return 1
+  echo "$_json" | grep -o "\"name\":\"$1\",\"state\":\"[^\"]*\"" | sed 's/.*"state":"//;s/"//'
 }
 
 wait_for_codespace_ready() {
-  name=$1; max_wait=300; waited=0
-  while [ $waited -lt $max_wait ]; do
-    state=$(get_codespace_state "$name")
-    case "$state" in
+  _name="$1"
+  _max_wait=300
+  _waited=0
+  while [ "${_waited:-0}" -lt "${_max_wait:-300}" ] 2>/dev/null; do
+    _state=$(get_codespace_state "$_name")
+    case "$_state" in
       Available) return 0 ;;
       Stopped|Shutdown|Suspended)
         if [ "$AUTO_START_STOPPED" = "true" ]; then
-          log_info "[$name] Stopped. Starting..."
-          gh cs start -c "$name" >/dev/null 2>&1
-        else return 1; fi ;;
-      Starting|Rebuilding|Updating|Creating) sleep 10 ;;
-      *) return 1 ;;
+          log_info "$_name Stopped. Starting..."
+          gh cs start -c "$_name" >/dev/null 2>&1
+        else
+          return 1
+        fi ;;
+      Starting|Rebuilding|Updating|Creating) sleep 10 ;;      *) return 1 ;;
     esac
-    sleep 5; waited=$((waited + 15))
+    sleep 5
+    _waited=$(( _waited + 15 ))
   done
-  log_error "[$name] Timeout waiting for Available"; return 1
+  log_error "$_name Timeout waiting for Available"
+  return 1
 }
 
 # ==============================================================================
-# 🔄 WORKER LOGIC (PARALLEL)
+# 🔄 WORKER LOGIC (PARALLEL & SAFE)
 # ==============================================================================
-run_codespace_worker() {  index=$1; cs_name=""; session_start=0
+run_codespace_worker() {
+  index="$1"
+  cs_name=""
+  session_start=0
   log_info "[Worker #$index] Starting..."
 
   while true; do
@@ -106,28 +121,31 @@ run_codespace_worker() {  index=$1; cs_name=""; session_start=0
       log_info "[Worker #$index] Assigned to: $cs_name"
     fi
 
-    # Rotation check
-    if [ $session_start -ne 0 ] && [ $(( $(date +%s) - session_start )) -ge $(( SESSION_ROTATION_HOURS * 3600 )) ]; then
-      log_info "[Worker #$index] Rotation time reached. Reconnecting..."
-      session_start=0
+    # Safe rotation check
+    if [ "${session_start:-0}" != "0" ] && [ -n "${session_start:-}" ]; then
+      _now=$(date +%s)
+      _elapsed=$(( _now - session_start ))
+      _limit=$(( ${SESSION_ROTATION_HOURS:-10} * 3600 ))
+      if [ "${_elapsed:-0}" -ge "${_limit:-36000}" ] 2>/dev/null; then
+        log_info "[Worker #$index] Rotation time reached. Reconnecting..."
+        session_start=0
+      fi
     fi
 
     # Wait for ready
     if ! wait_for_codespace_ready "$cs_name"; then sleep 30; continue; fi
 
     # Keep-alive command
-    remote_cmd="while true; do echo \"keepalive \$(date +%s)\"; sleep $IDLE_HEARTBEAT_INTERVAL; done"
+    remote_cmd="while true; do echo \"keepalive \$(date +%s)\"; sleep ${IDLE_HEARTBEAT_INTERVAL:-30}; done"
     log_debug "[Worker #$index] Starting SSH session..."
     
-    # ✅ Clean gh cs ssh call
-    run_with_timeout $((KEEP_ALIVE_DURATION + 30)) "gh cs ssh -c \"$cs_name\" -- \"$remote_cmd\" 2>&1"
+    run_with_timeout $(( ${KEEP_ALIVE_DURATION:-1200} + 30 )) "gh cs ssh -c \"$cs_name\" -- \"$remote_cmd\" 2>&1"
     exit_code=$?
 
-    if [ $exit_code -eq 0 ] || [ $exit_code -eq 124 ] || [ $exit_code -eq 143 ]; then
+    if [ "${exit_code:-1}" -eq 0 ] || [ "${exit_code:-1}" -eq 124 ] || [ "${exit_code:-1}" -eq 143 ]; then
       session_start=$(date +%s)
       update_heartbeat
-      log_info "[Worker #$index] Session OK ($cs_name)"
-    else
+      log_info "[Worker #$index] Session OK ($cs_name)"    else
       log_error "[Worker #$index] Failed (exit: $exit_code). Retrying..."
       sleep 30
     fi
@@ -139,15 +157,16 @@ run_codespace_worker() {  index=$1; cs_name=""; session_start=0
 # ⚡ BACKGROUND HEALTH MONITOR
 # ==============================================================================
 run_health_monitor() {
-  log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
+  log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL:-10}s)"
   while true; do
-    sleep $HEALTH_CHECK_INTERVAL
-    json=$(list_codespaces)
-    [ -z "$json" ] && continue
-    echo "$json" | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//' | while read name; do
-      state=$(echo "$json" | grep "\"name\":\"$name\"" | grep -o '"state":"[^"]*"' | sed 's/"state":"//;s/"//')      if [ "$state" = "Shutdown" ] || [ "$state" = "Suspended" ] || [ "$state" = "Stopped" ]; then
-        log_info "[Monitor] Auto-starting: $name"
-        gh cs start -c "$name" >/dev/null 2>&1 &
+    sleep ${HEALTH_CHECK_INTERVAL:-10}
+    _json=$(list_codespaces)
+    [ -z "$_json" ] && continue
+    echo "$_json" | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//' | while read -r _cs_name; do
+      _state=$(echo "$_json" | grep -o "\"name\":\"$_cs_name\",\"state\":\"[^\"]*\"" | sed 's/.*"state":"//;s/"//')
+      if [ "$_state" = "Shutdown" ] || [ "$_state" = "Suspended" ] || [ "$_state" = "Stopped" ]; then
+        log_info "[Monitor] Auto-starting: $_cs_name"
+        gh cs start -c "$_cs_name" >/dev/null 2>&1 &
       fi
     done
   done
@@ -159,25 +178,27 @@ run_health_monitor() {
 if [ -z "$GITHUB_TOKEN" ]; then log_error "GITHUB_TOKEN not set"; exit 1; fi
 
 log_info "Starting Codespace Keep-Alive Manager"
-
 gh auth status >/dev/null 2>&1 || echo "$GITHUB_TOKEN" | gh auth login --with-token >/dev/null 2>&1
 
 MONITOR_PID=""
 if [ "$ENABLE_FAST_MONITOR" = "true" ]; then
-  run_health_monitor &; MONITOR_PID=$!
+  run_health_monitor &
+  MONITOR_PID=$!
 fi
 
-run_codespace_worker 1 &; WORKER1_PID=$!
-run_codespace_worker 2 &; WORKER2_PID=$!
+run_codespace_worker 1 &
+WORKER1_PID=$!
+run_codespace_worker 2 &
+WORKER2_PID=$!
 
 log_info "Running: W1=$WORKER1_PID, W2=$WORKER2_PID, Monitor=$MONITOR_PID"
 
 cleanup() {
-  log_info "Shutting down..."
-  kill $MONITOR_PID $WORKER1_PID $WORKER2_PID 2>/dev/null
+  log_info "Shutting down..."  kill "$MONITOR_PID" "$WORKER1_PID" "$WORKER2_PID" 2>/dev/null
   pkill -9 gh 2>/dev/null
-  wait $WORKER1_PID $WORKER2_PID $MONITOR_PID 2>/dev/null
-  rm -f "$HEALTH_FILE"; exit 0
+  wait "$WORKER1_PID" "$WORKER2_PID" "$MONITOR_PID" 2>/dev/null
+  rm -f "$HEALTH_FILE"
+  exit 0
 }
 trap cleanup SIGTERM SIGINT EXIT
 update_heartbeat
