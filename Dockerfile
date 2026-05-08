@@ -1,4 +1,4 @@
-FROM alpine:3.latest
+FROM alpine:latest
 
 # Install minimal dependencies
 RUN apk add --no-cache \
