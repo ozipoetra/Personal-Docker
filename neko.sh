@@ -254,7 +254,7 @@ forward_single_port() {
   
   # Set visibility if public (private is default)
   if [ "$visibility" = "public" ]; then
-    if ! "gh cs ports -c '$codespace_name' visibility ${local_port}:public" >/dev/null 2>&1; then
+    if gh cs ports -c "$codespace_name" visibility ${local_port}:public >/dev/null 2>&1; then
       log_warning "Failed to set port ${local_port} to public for $codespace_name"
       return 1
     fi
