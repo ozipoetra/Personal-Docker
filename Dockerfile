@@ -33,6 +33,6 @@ ENV HOME=/home/appuser \
     HEALTH_CHECK_INTERVAL=10
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD find /tmp/health/heartbeat -mmin -2 2>/dev/null | grep -q .
+    CMD find /tmp/health/heartbeat -mmin -2 >/dev/null 2>&1 && exit 0 || exit 1
 
 CMD ["/app/entrypoint.sh"]
