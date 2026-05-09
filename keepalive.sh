@@ -10,14 +10,12 @@ export GH_PAGER=""
 KEEP_ALIVE_DURATION="${KEEP_ALIVE_DURATION:-1200}"
 SESSION_ROTATION_HOURS="${SESSION_ROTATION_HOURS:-10}"
 AUTO_START_STOPPED="${AUTO_START_STOPPED:-true}"
-IDLE_HEARTBEAT_INTERVAL="${IDLE_HEARTBEAT_INTERVAL:-30}"
 HEALTH_CHECK_INTERVAL="${HEALTH_CHECK_INTERVAL:-10}"
 ENABLE_FAST_MONITOR="${ENABLE_FAST_MONITOR:-true}"
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 
-# Fast retry settings
-RETRY_SLEEP_SHORT=5   # Sleep between quick retries
-RETRY_SLEEP_LONG=30   # Sleep after hard failures
+RETRY_SLEEP_SHORT=5
+RETRY_SLEEP_LONG=30
 
 # ==============================================================================
 # LOGGING
@@ -47,9 +45,9 @@ log_debug()   { log DEBUG "$@"; }
 run_with_timeout() {
     local timeout_secs="$1"
     shift
-    local cmd="$*"    
-    eval "$cmd" &
-    local pid=$!
+    local cmd="$*"
+    
+    eval "$cmd" &    local pid=$!
     local count=0
     
     while kill -0 "$pid" >/dev/null 2>&1; do
@@ -86,7 +84,7 @@ get_codespace_name_by_index() {
 }
 
 # ==============================================================================
-# WORKER LOGIC (FAST WAKE-UP)
+# WORKER LOGIC (SIMPLIFIED)
 # ==============================================================================
 run_codespace_worker() {
     local index="$1"
@@ -95,11 +93,10 @@ run_codespace_worker() {
     
     log_info "[Worker #$index] Starting..."
 
-    # ✅ FIXED: Added 'done' at the end of this while loop
-    while true; do        # Discover codespace name if not set
+    while true; do
+        # Discover codespace name
         if [ -z "$cs_name" ]; then
-            cs_name=$(get_codespace_name_by_index "$index")
-            if [ -z "$cs_name" ]; then
+            cs_name=$(get_codespace_name_by_index "$index")            if [ -z "$cs_name" ]; then
                 sleep $RETRY_SLEEP_LONG
                 continue
             fi
@@ -119,38 +116,36 @@ run_codespace_worker() {
             fi
         fi
 
-        # ⚡ FAST CONNECT STRATEGY
-        local remote_cmd="while true; do echo \"keepalive \$(date +%s)\"; sleep $IDLE_HEARTBEAT_INTERVAL; done"
+        # ⚡ SIMPLIFIED REMOTE COMMAND:
+        # Just hostname and uptime. Exits immediately. No zombies.
+        local remote_cmd="echo \"\$(hostname): uptime=\$(uptime -p 2>/dev/null || uptime)\"; exit 0;"
         
-        log_debug "[Worker #$index] Attempting SSH connection to $cs_name..."
+        log_debug "[Worker #$index] Pinging $cs_name..."
         
-        # Try to connect with a moderate timeout (60s allows for boot time)
+        # Try to connect
         run_with_timeout 60 "gh cs ssh -c \"$cs_name\" -- \"$remote_cmd\" 2>&1"
         local exit_code=$?
 
-        # Success codes: 0 (clean), 124 (timeout/kept alive), 143 (signal)
         if [ "$exit_code" -eq 0 ] || [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 143 ]; then
             session_start=$(date +%s)
-            log_info "[Worker #$index] Connected to $cs_name"
+            log_info "[Worker #$index] Ping successful ($cs_name)"
         else
             log_warning "[Worker #$index] Connection failed (exit: $exit_code). Retrying in ${RETRY_SLEEP_SHORT}s..."
             sleep $RETRY_SLEEP_SHORT
         fi
         
-        # Small pause before next attempt
-        sleep 2
+        sleep 30
     done
 }
 
 # ==============================================================================
 # HEALTH MONITOR (Background)
 # ==============================================================================
-run_health_monitor() {    log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
+run_health_monitor() {
+    log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
     
-    # ✅ FIXED: Added 'done' at the end of this while loop
     while true; do
-        sleep "$HEALTH_CHECK_INTERVAL"
-        
+        sleep "$HEALTH_CHECK_INTERVAL"        
         local json
         json=$(list_codespaces)
         
@@ -158,7 +153,6 @@ run_health_monitor() {    log_info "Fast health monitor started (interval: ${HEA
             continue
         fi
         
-        # Parse names and check states
         local names
         names=$(echo "$json" | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//')
         
@@ -172,7 +166,6 @@ run_health_monitor() {    log_info "Fast health monitor started (interval: ${HEA
             
             if [ "$state" = "Shutdown" ] || [ "$state" = "Suspended" ] || [ "$state" = "Stopped" ]; then
                 log_info "[Monitor] Detected stopped codespace: $cs_name. Triggering start..."
-                # Fire and forget start command
                 gh cs start -c "$cs_name" >/dev/null 2>&1 &
             fi
         done <<< "$names"
@@ -189,27 +182,23 @@ fi
 
 log_info "Starting Codespace Keep-Alive Manager"
 
-# Authenticate
 if ! gh auth status >/dev/null 2>&1; then
     echo "$GITHUB_TOKEN" | gh auth login --with-token >/dev/null 2>&1
 fi
 
-# Start MonitorMONITOR_PID=""
+MONITOR_PID=""
 if [ "$ENABLE_FAST_MONITOR" = "true" ]; then
     run_health_monitor &
     MONITOR_PID=$!
 fi
 
-# Start Workers
 run_codespace_worker 1 &
 WORKER1_PID=$!
-
 run_codespace_worker 2 &
 WORKER2_PID=$!
 
 log_info "Running: W1=$WORKER1_PID, W2=$WORKER2_PID, Monitor=$MONITOR_PID"
 
-# Cleanup Handler
 cleanup() {
     log_info "Shutting down..."
     kill "$MONITOR_PID" "$WORKER1_PID" "$WORKER2_PID" 2>/dev/null
@@ -220,7 +209,6 @@ cleanup() {
 
 trap cleanup SIGTERM SIGINT EXIT
 
-# Keep main process alive
 while true; do
     sleep 1
 done
