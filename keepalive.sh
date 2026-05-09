@@ -95,8 +95,9 @@ run_codespace_worker() {
     
     log_info "[Worker #$index] Starting..."
 
-    while true; do
-        # Discover codespace name if not set        if [ -z "$cs_name" ]; then
+    # ✅ FIXED: Added 'done' at the end of this while loop
+    while true; do        # Discover codespace name if not set
+        if [ -z "$cs_name" ]; then
             cs_name=$(get_codespace_name_by_index "$index")
             if [ -z "$cs_name" ]; then
                 sleep $RETRY_SLEEP_LONG
@@ -118,11 +119,7 @@ run_codespace_worker() {
             fi
         fi
 
-        # ⚡ FAST CONNECT STRATEGY:
-        # Instead of waiting for API state, we try to SSH directly.
-        # gh cs ssh will auto-start the codespace if it's stopped.
-        # We use a shorter timeout for the initial connection attempt.
-        
+        # ⚡ FAST CONNECT STRATEGY
         local remote_cmd="while true; do echo \"keepalive \$(date +%s)\"; sleep $IDLE_HEARTBEAT_INTERVAL; done"
         
         log_debug "[Worker #$index] Attempting SSH connection to $cs_name..."
@@ -135,21 +132,12 @@ run_codespace_worker() {
         if [ "$exit_code" -eq 0 ] || [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 143 ]; then
             session_start=$(date +%s)
             log_info "[Worker #$index] Connected to $cs_name"
-            
-            # Keep the session alive for the duration
-            # Note: The above command already runs the keepalive loop remotely.
-            # If it exits cleanly (0), it means the remote loop ended (unlikely unless killed).
-            # If it times out (124), our wrapper killed it, which is expected behavior for rotation.
-            
-            # If we want to maintain a persistent connection like the old script,
-            # we actually don't need to re-loop immediately if the SSH session is still active.
-            # However, since we killed it via timeout, we restart.
-            
-        else            log_warning "[Worker #$index] Connection failed (exit: $exit_code). Retrying in ${RETRY_SLEEP_SHORT}s..."
+        else
+            log_warning "[Worker #$index] Connection failed (exit: $exit_code). Retrying in ${RETRY_SLEEP_SHORT}s..."
             sleep $RETRY_SLEEP_SHORT
         fi
         
-        # Small pause before next attempt if failed, or immediate restart if rotated
+        # Small pause before next attempt
         sleep 2
     done
 }
@@ -157,9 +145,9 @@ run_codespace_worker() {
 # ==============================================================================
 # HEALTH MONITOR (Background)
 # ==============================================================================
-run_health_monitor() {
-    log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
+run_health_monitor() {    log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
     
+    # ✅ FIXED: Added 'done' at the end of this while loop
     while true; do
         sleep "$HEALTH_CHECK_INTERVAL"
         
@@ -194,7 +182,8 @@ run_health_monitor() {
 # ==============================================================================
 # MAIN EXECUTION
 # ==============================================================================
-if [ -z "${GITHUB_TOKEN:-}" ]; then    log_error "GITHUB_TOKEN not set"
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+    log_error "GITHUB_TOKEN not set"
     exit 1
 fi
 
@@ -205,8 +194,7 @@ if ! gh auth status >/dev/null 2>&1; then
     echo "$GITHUB_TOKEN" | gh auth login --with-token >/dev/null 2>&1
 fi
 
-# Start Monitor
-MONITOR_PID=""
+# Start MonitorMONITOR_PID=""
 if [ "$ENABLE_FAST_MONITOR" = "true" ]; then
     run_health_monitor &
     MONITOR_PID=$!
