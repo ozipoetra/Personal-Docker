@@ -20,7 +20,9 @@ RETRY_SLEEP_LONG=30
 # ==============================================================================
 # LOGGING
 # ==============================================================================
-timestamp() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+timestamp() {
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
 
 log() {
     local level="$1"
@@ -45,9 +47,9 @@ log_debug()   { log DEBUG "$@"; }
 run_with_timeout() {
     local timeout_secs="$1"
     shift
-    local cmd="$*"
-    
-    eval "$cmd" &    local pid=$!
+    local cmd="$*"    
+    eval "$cmd" &
+    local pid=$!
     local count=0
     
     while kill -0 "$pid" >/dev/null 2>&1; do
@@ -84,7 +86,7 @@ get_codespace_name_by_index() {
 }
 
 # ==============================================================================
-# WORKER LOGIC (SIMPLIFIED)
+# WORKER LOGIC
 # ==============================================================================
 run_codespace_worker() {
     local index="$1"
@@ -93,19 +95,18 @@ run_codespace_worker() {
     
     log_info "[Worker #$index] Starting..."
 
-    # ✅ FIXED: Added 'done' at the end of this while loop
     while true; do
-        # Discover codespace name
-        if [ -z "$cs_name" ]; then            cs_name=$(get_codespace_name_by_index "$index")
+        # Discover codespace name        if [ -z "$cs_name" ]; then
+            cs_name=$(get_codespace_name_by_index "$index")
             if [ -z "$cs_name" ]; then
-                sleep $RETRY_SLEEP_LONG
+                sleep "$RETRY_SLEEP_LONG"
                 continue
             fi
             log_info "[Worker #$index] Assigned to: $cs_name"
         fi
 
         # Check for session rotation
-        if [ "$session_start" -ne 0 ] 2>/dev/null; then
+        if [ "$session_start" -ne 0 ]; then
             local now elapsed limit
             now=$(date +%s)
             elapsed=$((now - session_start))
@@ -117,13 +118,12 @@ run_codespace_worker() {
             fi
         fi
 
-        # ⚡ SIMPLIFIED REMOTE COMMAND:
-        # Just hostname and uptime. Exits immediately. No zombies.
+        # Remote command: hostname + uptime
         local remote_cmd="echo \"\$(hostname): uptime=\$(uptime -p 2>/dev/null || uptime)\"; exit 0;"
         
         log_debug "[Worker #$index] Pinging $cs_name..."
         
-        # Try to connect
+        # Connect with timeout
         run_with_timeout 60 "gh cs ssh -c \"$cs_name\" -- \"$remote_cmd\" 2>&1"
         local exit_code=$?
 
@@ -132,7 +132,7 @@ run_codespace_worker() {
             log_info "[Worker #$index] Ping successful ($cs_name)"
         else
             log_warning "[Worker #$index] Connection failed (exit: $exit_code). Retrying in ${RETRY_SLEEP_SHORT}s..."
-            sleep $RETRY_SLEEP_SHORT
+            sleep "$RETRY_SLEEP_SHORT"
         fi
         
         sleep 30
@@ -145,8 +145,7 @@ run_codespace_worker() {
 run_health_monitor() {
     log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
     
-    # ✅ FIXED: Added 'done' at the end of this while loop    while true; do
-        sleep "$HEALTH_CHECK_INTERVAL"
+    while true; do        sleep "$HEALTH_CHECK_INTERVAL"
         
         local json
         json=$(list_codespaces)
@@ -194,8 +193,8 @@ if [ "$ENABLE_FAST_MONITOR" = "true" ]; then
     MONITOR_PID=$!
 fi
 
-run_codespace_worker 1 &WORKER1_PID=$!
-
+run_codespace_worker 1 &
+WORKER1_PID=$!
 run_codespace_worker 2 &
 WORKER2_PID=$!
 
