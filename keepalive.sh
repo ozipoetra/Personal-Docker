@@ -15,12 +15,14 @@ HEALTH_CHECK_INTERVAL="${HEALTH_CHECK_INTERVAL:-10}"
 ENABLE_FAST_MONITOR="${ENABLE_FAST_MONITOR:-true}"
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 
+# Fast retry settings
+RETRY_SLEEP_SHORT=5   # Sleep between quick retries
+RETRY_SLEEP_LONG=30   # Sleep after hard failures
+
 # ==============================================================================
 # LOGGING
 # ==============================================================================
-timestamp() {
-    date -u +"%Y-%m-%dT%H:%M:%SZ"
-}
+timestamp() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
 log() {
     local level="$1"
@@ -45,9 +47,9 @@ log_debug()   { log DEBUG "$@"; }
 run_with_timeout() {
     local timeout_secs="$1"
     shift
-    local cmd="$*"
-    
-    eval "$cmd" &    local pid=$!
+    local cmd="$*"    
+    eval "$cmd" &
+    local pid=$!
     local count=0
     
     while kill -0 "$pid" >/dev/null 2>&1; do
@@ -83,55 +85,8 @@ get_codespace_name_by_index() {
     echo "$json" | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//' | sed -n "${index}p"
 }
 
-get_codespace_state() {
-    local name="$1"
-    local json
-    json=$(list_codespaces)
-    if [ -z "$json" ]; then
-        return 1
-    fi
-    # Extract state for specific name
-    echo "$json" | grep -o "\"name\":\"$name\",\"state\":\"[^\"]*\"" | sed 's/.*"state":"//;s/"//'
-}
-
-wait_for_codespace_ready() {
-    local name="$1"
-    local max_wait=300    local waited=0
-    
-    while [ "$waited" -lt "$max_wait" ]; do
-        local state
-        state=$(get_codespace_state "$name")
-        
-        case "$state" in
-            Available)
-                return 0
-                ;;
-            Stopped|Shutdown|Suspended)
-                if [ "$AUTO_START_STOPPED" = "true" ]; then
-                    log_info "$name Stopped. Starting..."
-                    gh cs start -c "$name" >/dev/null 2>&1
-                else
-                    return 1
-                fi
-                ;;
-            Starting|Rebuilding|Updating|Creating)
-                sleep 10
-                ;;
-            *)
-                return 1
-                ;;
-        esac
-        
-        sleep 5
-        waited=$((waited + 15))
-    done
-    
-    log_error "$name Timeout waiting for Available"
-    return 1
-}
-
 # ==============================================================================
-# WORKER LOGIC
+# WORKER LOGIC (FAST WAKE-UP)
 # ==============================================================================
 run_codespace_worker() {
     local index="$1"
@@ -141,11 +96,11 @@ run_codespace_worker() {
     log_info "[Worker #$index] Starting..."
 
     while true; do
-        # Discover codespace name if not set
-        if [ -z "$cs_name" ]; then
+        # Discover codespace name if not set        if [ -z "$cs_name" ]; then
             cs_name=$(get_codespace_name_by_index "$index")
             if [ -z "$cs_name" ]; then
-                sleep 30                continue
+                sleep $RETRY_SLEEP_LONG
+                continue
             fi
             log_info "[Worker #$index] Assigned to: $cs_name"
         fi
@@ -163,38 +118,47 @@ run_codespace_worker() {
             fi
         fi
 
-        # Wait for codespace to be ready
-        if ! wait_for_codespace_ready "$cs_name"; then
-            sleep 30
-            continue
-        fi
-
-        # Define remote keep-alive command
+        # ⚡ FAST CONNECT STRATEGY:
+        # Instead of waiting for API state, we try to SSH directly.
+        # gh cs ssh will auto-start the codespace if it's stopped.
+        # We use a shorter timeout for the initial connection attempt.
+        
         local remote_cmd="while true; do echo \"keepalive \$(date +%s)\"; sleep $IDLE_HEARTBEAT_INTERVAL; done"
         
-        log_debug "[Worker #$index] Starting SSH session..."
+        log_debug "[Worker #$index] Attempting SSH connection to $cs_name..."
         
-        # Run SSH with timeout
-        run_with_timeout $((KEEP_ALIVE_DURATION + 30)) "gh cs ssh -c \"$cs_name\" -- \"$remote_cmd\" 2>&1"
+        # Try to connect with a moderate timeout (60s allows for boot time)
+        run_with_timeout 60 "gh cs ssh -c \"$cs_name\" -- \"$remote_cmd\" 2>&1"
         local exit_code=$?
 
-        # Check exit code
+        # Success codes: 0 (clean), 124 (timeout/kept alive), 143 (signal)
         if [ "$exit_code" -eq 0 ] || [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 143 ]; then
             session_start=$(date +%s)
-            log_info "[Worker #$index] Session OK ($cs_name)"
-        else
-            log_error "[Worker #$index] Failed (exit: $exit_code). Retrying..."
-            sleep 30
+            log_info "[Worker #$index] Connected to $cs_name"
+            
+            # Keep the session alive for the duration
+            # Note: The above command already runs the keepalive loop remotely.
+            # If it exits cleanly (0), it means the remote loop ended (unlikely unless killed).
+            # If it times out (124), our wrapper killed it, which is expected behavior for rotation.
+            
+            # If we want to maintain a persistent connection like the old script,
+            # we actually don't need to re-loop immediately if the SSH session is still active.
+            # However, since we killed it via timeout, we restart.
+            
+        else            log_warning "[Worker #$index] Connection failed (exit: $exit_code). Retrying in ${RETRY_SLEEP_SHORT}s..."
+            sleep $RETRY_SLEEP_SHORT
         fi
         
-        sleep 5
+        # Small pause before next attempt if failed, or immediate restart if rotated
+        sleep 2
     done
 }
 
 # ==============================================================================
-# HEALTH MONITOR
+# HEALTH MONITOR (Background)
 # ==============================================================================
-run_health_monitor() {    log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
+run_health_monitor() {
+    log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
     
     while true; do
         sleep "$HEALTH_CHECK_INTERVAL"
@@ -219,7 +183,8 @@ run_health_monitor() {    log_info "Fast health monitor started (interval: ${HEA
             state=$(echo "$json" | grep -o "\"name\":\"$cs_name\",\"state\":\"[^\"]*\"" | sed 's/.*"state":"//;s/"//')
             
             if [ "$state" = "Shutdown" ] || [ "$state" = "Suspended" ] || [ "$state" = "Stopped" ]; then
-                log_info "[Monitor] Auto-starting: $cs_name"
+                log_info "[Monitor] Detected stopped codespace: $cs_name. Triggering start..."
+                # Fire and forget start command
                 gh cs start -c "$cs_name" >/dev/null 2>&1 &
             fi
         done <<< "$names"
@@ -229,8 +194,7 @@ run_health_monitor() {    log_info "Fast health monitor started (interval: ${HEA
 # ==============================================================================
 # MAIN EXECUTION
 # ==============================================================================
-if [ -z "${GITHUB_TOKEN:-}" ]; then
-    log_error "GITHUB_TOKEN not set"
+if [ -z "${GITHUB_TOKEN:-}" ]; then    log_error "GITHUB_TOKEN not set"
     exit 1
 fi
 
@@ -243,7 +207,8 @@ fi
 
 # Start Monitor
 MONITOR_PID=""
-if [ "$ENABLE_FAST_MONITOR" = "true" ]; then    run_health_monitor &
+if [ "$ENABLE_FAST_MONITOR" = "true" ]; then
+    run_health_monitor &
     MONITOR_PID=$!
 fi
 
