@@ -47,11 +47,10 @@ log_debug()   { log DEBUG "$@"; }
 run_with_timeout() {
     local timeout_secs="$1"
     shift
-    local cmd="$*"    
-    eval "$cmd" &
+    "$@" &                          # FIX: run command array directly, no eval
     local pid=$!
     local count=0
-    
+
     while kill -0 "$pid" >/dev/null 2>&1; do
         count=$((count + 1))
         if [ "$count" -ge "$timeout_secs" ]; then
@@ -63,7 +62,7 @@ run_with_timeout() {
         fi
         sleep 1
     done
-    
+
     wait "$pid" 2>/dev/null
     return $?
 }
@@ -92,18 +91,19 @@ run_codespace_worker() {
     local index="$1"
     local cs_name=""
     local session_start=0
-    
+
     log_info "[Worker #$index] Starting..."
 
     while true; do
-        # Discover codespace name        if [ -z "$cs_name" ]; then
+        # Discover codespace name        # FIX: comment moved to its own line
+        if [ -z "$cs_name" ]; then
             cs_name=$(get_codespace_name_by_index "$index")
             if [ -z "$cs_name" ]; then
                 sleep "$RETRY_SLEEP_LONG"
                 continue
             fi
             log_info "[Worker #$index] Assigned to: $cs_name"
-        fi
+        fi                              # FIX: closing fi was missing
 
         # Check for session rotation
         if [ "$session_start" -ne 0 ]; then
@@ -111,20 +111,19 @@ run_codespace_worker() {
             now=$(date +%s)
             elapsed=$((now - session_start))
             limit=$((SESSION_ROTATION_HOURS * 3600))
-            
+
             if [ "$elapsed" -ge "$limit" ]; then
                 log_info "[Worker #$index] Rotation time reached. Reconnecting..."
                 session_start=0
             fi
         fi
 
-        # Remote command: hostname + uptime
         local remote_cmd="echo \"\$(hostname): uptime=\$(uptime -p 2>/dev/null || uptime)\"; exit 0;"
-        
+
         log_debug "[Worker #$index] Pinging $cs_name..."
-        
-        # Connect with timeout
-        run_with_timeout 60 "gh cs ssh -c \"$cs_name\" -- \"$remote_cmd\" 2>&1"
+
+        # FIX: pass args as array, not eval'd string
+        run_with_timeout 60 gh cs ssh -c "$cs_name" -- "$remote_cmd"
         local exit_code=$?
 
         if [ "$exit_code" -eq 0 ] || [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 143 ]; then
@@ -134,7 +133,7 @@ run_codespace_worker() {
             log_warning "[Worker #$index] Connection failed (exit: $exit_code). Retrying in ${RETRY_SLEEP_SHORT}s..."
             sleep "$RETRY_SLEEP_SHORT"
         fi
-        
+
         sleep 30
     done
 }
@@ -144,32 +143,32 @@ run_codespace_worker() {
 # ==============================================================================
 run_health_monitor() {
     log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
-    
-    while true; do        sleep "$HEALTH_CHECK_INTERVAL"
-        
+
+    while true; do
+        # FIX: do work first, then sleep at the end
         local json
         json=$(list_codespaces)
-        
-        if [ -z "$json" ]; then
-            continue
+
+        if [ -n "$json" ]; then
+            local names
+            names=$(echo "$json" | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//')
+
+            while IFS= read -r cs_name; do
+                if [ -z "$cs_name" ]; then
+                    continue
+                fi
+
+                local state
+                state=$(echo "$json" | grep -o "\"name\":\"$cs_name\",\"state\":\"[^\"]*\"" | sed 's/.*"state":"//;s/"//')
+
+                if [ "$state" = "Shutdown" ] || [ "$state" = "Suspended" ] || [ "$state" = "Stopped" ]; then
+                    log_info "[Monitor] Detected stopped codespace: $cs_name. Triggering start..."
+                    gh cs start -c "$cs_name" >/dev/null 2>&1 &
+                fi
+            done <<< "$names"
         fi
-        
-        local names
-        names=$(echo "$json" | grep -o '"name":"[^"]*"' | sed 's/"name":"//;s/"$//')
-        
-        while IFS= read -r cs_name; do
-            if [ -z "$cs_name" ]; then
-                continue
-            fi
-            
-            local state
-            state=$(echo "$json" | grep -o "\"name\":\"$cs_name\",\"state\":\"[^\"]*\"" | sed 's/.*"state":"//;s/"//')
-            
-            if [ "$state" = "Shutdown" ] || [ "$state" = "Suspended" ] || [ "$state" = "Stopped" ]; then
-                log_info "[Monitor] Detected stopped codespace: $cs_name. Triggering start..."
-                gh cs start -c "$cs_name" >/dev/null 2>&1 &
-            fi
-        done <<< "$names"
+
+        sleep "$HEALTH_CHECK_INTERVAL"  # FIX: sleep moved to end of loop
     done
 }
 
