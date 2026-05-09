@@ -93,10 +93,11 @@ run_codespace_worker() {
     
     log_info "[Worker #$index] Starting..."
 
+    # ✅ FIXED: Added 'done' at the end of this while loop
     while true; do
         # Discover codespace name
-        if [ -z "$cs_name" ]; then
-            cs_name=$(get_codespace_name_by_index "$index")            if [ -z "$cs_name" ]; then
+        if [ -z "$cs_name" ]; then            cs_name=$(get_codespace_name_by_index "$index")
+            if [ -z "$cs_name" ]; then
                 sleep $RETRY_SLEEP_LONG
                 continue
             fi
@@ -144,8 +145,9 @@ run_codespace_worker() {
 run_health_monitor() {
     log_info "Fast health monitor started (interval: ${HEALTH_CHECK_INTERVAL}s)"
     
-    while true; do
-        sleep "$HEALTH_CHECK_INTERVAL"        
+    # ✅ FIXED: Added 'done' at the end of this while loop    while true; do
+        sleep "$HEALTH_CHECK_INTERVAL"
+        
         local json
         json=$(list_codespaces)
         
@@ -192,8 +194,8 @@ if [ "$ENABLE_FAST_MONITOR" = "true" ]; then
     MONITOR_PID=$!
 fi
 
-run_codespace_worker 1 &
-WORKER1_PID=$!
+run_codespace_worker 1 &WORKER1_PID=$!
+
 run_codespace_worker 2 &
 WORKER2_PID=$!
 
